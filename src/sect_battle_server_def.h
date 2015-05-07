@@ -1,0 +1,160 @@
+/*
+ * =============================================================================
+ *
+ *       Filename:  sect_battle_server_def.h
+ *        Created:  04/27/15 14:44:19
+ *         Author:  Peng Wang
+ *          Email:  pw2191195@gmail.com
+ *    Description:  门派大战服务器用到的一些抽象类
+ *
+ * =============================================================================
+ */
+
+#ifndef  __SECT_BATTLE_SERVER_DEF_H__
+#define  __SECT_BATTLE_SERVER_DEF_H__
+
+#include <cstddef>
+#include <set>
+#include <map>
+#include <vector>
+#include <alpha/skip_list.h>
+#include "sect_battle_backup_coroutine.h"
+
+namespace SectBattle {
+    //错误码
+    enum class Code : int16_t{
+        kOk = 0,
+        kOccupied = -1000,
+        kNotInBattle = -1001,
+        kInvalidDirection = -1002,
+        kJoinedBattle = -1003,
+        kInSameSect = -1004,
+        kInvalidOpponent = -1005,
+        kOpponentMoved = -1006,
+    };
+    //战场格子类型
+    enum class FieldType {
+        kDefault = 0, //普通位置
+        kBornField = 1, //出生点
+        //kExtraResourceField = 2, //额外资源点，对Server没用
+    };
+    //门派类型
+    enum class SectType {
+        kNone = 0, //默认类型
+        kShaoLin = 1,
+        kWuDang = 2,
+        kKunLun = 3,
+        kEMei = 4,
+        kHuaShan = 5,
+        kKongTong = 6,
+        kMingJiao = 7,
+        kGaiBang = 8,
+        kMax = 9
+    };
+
+    enum class Direction {
+        kUp = 1,
+        kDonw = 2,
+        kLeft = 3,
+        kRight = 4
+    };
+
+    
+    using UinType = uint32_t;
+    using LevelType = uint16_t;
+    using OpponentList = std::vector<UinType>;
+    using CombatantIdentity = std::pair<LevelType, UinType>;
+    using GarrisonSet = std::set<CombatantIdentity>;
+    using GarrisonIterator = GarrisonSet::iterator;
+
+    bool IsValidSectType(int type);
+    bool IsValidDirection(int d);
+    //战场位置
+    class Pos {
+        public:
+            static const int kMaxPos = 9;
+            static Pos Create(uint16_t x, uint16_t y);
+            uint16_t X() const { return x_; }
+            uint16_t Y() const { return y_; }
+            std::pair<Pos, bool> Apply(Direction d) const;
+
+        private:
+            Pos() = default;
+            friend class Sect;
+            friend class Combatant;
+            uint16_t x_;
+            uint16_t y_;
+    };
+    bool operator< (const Pos& lhs, const Pos& rhs);
+    bool operator== (const Pos& lhs, const Pos& rhs);
+    bool operator!= (const Pos& lhs, const Pos& rhs);
+    static_assert (std::is_pod<Pos>::value, "Pos must be POD type");
+
+    //战场位置对应的格子
+    class Field {
+        public:
+            Field(SectType owner, FieldType type);
+            GarrisonSet::iterator AddGarrison(UinType uin, LevelType level);
+            void ChangeOwner(SectType new_owner);
+            void ReduceGarrison(UinType uin, GarrisonIterator iter);
+            OpponentList GetOpponents(LevelType level);
+            SectType Owner() const;
+            FieldType Type() const;
+            uint32_t GarrisonNum() const;
+
+        private:
+            SectType owner_;
+            FieldType type_;
+            GarrisonSet garrison_;
+    };
+    //门派
+    class Sect {
+        public:
+            Sect(SectType type, Pos born_pos);
+            void AddMember(UinType uin);
+            void RemoveMember(UinType uin);
+            uint32_t MemberCount() const;
+            SectType Type() const;
+            Pos BornPos() const;
+
+        private:
+            SectType type_;
+            Pos born_pos_;
+            std::set<UinType> members_;
+    };
+
+    //参战人员
+    class Combatant {
+        public:
+            Combatant(const Sect* sect, Pos pos, GarrisonIterator iter);
+            void MoveTo(Pos pos);
+            void SetIterator(GarrisonIterator iter);
+            void ChangeSect(const Sect* new_sect);
+            void ChangeOpponents(Direction d, const OpponentList& opponents);
+            const Sect* CurrentSect() const;
+            Pos CurrentPos() const;
+            GarrisonIterator Iterator() const;
+            OpponentList GetOpponents(Direction d) const;
+
+        private:
+            using OpponentMap = std::map<Direction, OpponentList>;
+            const Sect* sect_;
+            Pos pos_;
+            GarrisonIterator iter_;
+            OpponentMap opponents_;
+    };
+
+    class CombatantLite {
+        public:
+            static CombatantLite Create(Pos pos, LevelType level);
+
+        private:
+            Pos pos_;
+            LevelType level_;
+    };
+
+    using OwnerMap = alpha::SkipList<Pos, SectType>;
+    using CombatantMap = alpha::SkipList<UinType, CombatantLite>;
+};
+
+#endif   /* ----- #ifndef __SECT_BATTLE_SERVER_DEF_H__  ----- */

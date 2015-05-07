@@ -1,0 +1,86 @@
+package SectBattle;
+
+message ProtocolMessage {
+    optional bytes name = 1;
+    optional bytes payload = 2;
+}
+
+message PBPos {
+    required uint32 x = 1;
+    required uint32 y = 2;
+}
+
+message PBField {
+    optional PBPos pos = 1;
+    optional uint32 owner = 2;
+    optional uint32 garrison_num = 3;
+}
+
+message BattleField {
+    optional PBPos self_position = 1;
+    repeated uint32 sect_members_count = 2;
+    repeated PBField field = 3;
+}
+
+message QueryBattleFieldRequest {
+    optional uint32 uin = 1;
+}
+
+message QueryBattleFieldResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2;
+    optional BattleField battle_field = 3;
+}
+
+message JoinBattleRequest {
+    optional uint32 uin = 1;
+    optional uint32 level = 2;
+}
+
+message JoinBattleResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2; 
+    optional uint32 sect = 3;
+    optional BattleField battle_field = 4;
+}
+
+message MoveRequest {
+    optional uint32 uin = 1;
+    optional uint32 level = 2;
+    optional uint32 direction = 3;
+}
+
+message MoveResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2;
+    repeated uint32 opponents = 3;
+    optional BattleField battle_field = 4;
+}
+
+message ChangeSectRequest {
+    optional uint32 uin = 1;
+    optional uint32 level = 2;
+    optional uint32 sect = 3;
+}
+
+message ChangeSectResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2;
+    optional BattleField battle_field = 3;
+}
+
+message CheckFightRequest {
+    optional uint32 uin = 1;
+    optional uint32 opponent = 2; 
+    optional uint32 direction = 3;
+}
+
+message CheckFightResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2;
+    optional BattleField battle_field = 3;
+}
+
+message ResetPositionRequest {
+    optional uint32 uin = 1;
+}
