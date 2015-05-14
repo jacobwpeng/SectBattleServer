@@ -6,8 +6,8 @@ message ProtocolMessage {
 }
 
 message PBPos {
-    required uint32 x = 1;
-    required uint32 y = 2;
+    required int32 x = 1;
+    required int32 y = 2;
 }
 
 message PBField {
@@ -24,6 +24,7 @@ message BattleField {
 
 message QueryBattleFieldRequest {
     optional uint32 uin = 1;
+    optional uint32 level = 2;
 }
 
 message QueryBattleFieldResponse {
@@ -69,6 +70,19 @@ message ChangeSectResponse {
     optional BattleField battle_field = 3;
 }
 
+message ChangeOpponentRequest {
+    optional uint32 uin = 1;
+    optional uint32 level = 2;
+    optional uint32 direction = 3;
+}
+
+message ChangeOpponentResponse {
+    optional uint32 uin = 1;
+    optional sint32 code = 2;
+    repeated uint32 opponents = 3;
+    optional BattleField battle_field = 4;
+}
+
 message CheckFightRequest {
     optional uint32 uin = 1;
     optional uint32 opponent = 2; 
@@ -81,6 +95,18 @@ message CheckFightResponse {
     optional BattleField battle_field = 3;
 }
 
-message ResetPositionRequest {
+message ReportFightRequest {
     optional uint32 uin = 1;
+    optional uint32 opponent = 2;
+    optional uint32 direction = 3;
+    optional bool reset_self = 4;
+    optional bool reset_opponent = 5;
+    optional uint32 level = 6;
+    optional uint32 opponent_level = 7;
+}
+
+message ReportFightResponse {
+    optional uint32 uin = 1;
+    optional uint32 code = 2;
+    optional BattleField battle_field = 3;
 }

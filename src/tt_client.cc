@@ -226,6 +226,7 @@ namespace tokyotyrant {
 
     void Client::OnDisconnected(alpha::TcpConnectionPtr conn) {
         assert (conn_ == conn);
+        (void)conn;
         ResetConnection();
         LOG_WARNING << "Connection to Remote server closed, addr = " << *addr_;
         co_->Resume();
@@ -234,11 +235,13 @@ namespace tokyotyrant {
     void Client::OnMessage(alpha::TcpConnectionPtr conn, 
             alpha::TcpConnectionBuffer*) {
         assert (conn == conn_);
+        (void)conn;
         co_->Resume();
     }
 
     void Client::OnWriteDone(alpha::TcpConnectionPtr conn) {
         assert (conn == conn_);
+        (void)conn;
         co_->Resume();
     }
 

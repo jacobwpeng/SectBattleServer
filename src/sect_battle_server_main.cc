@@ -21,11 +21,9 @@ int main(int argc, char* argv[]) {
     const char* progname = argv[0];
     gflags::SetUsageMessage("Handle all SectBattle system request");
     gflags::ParseCommandLineFlags(&argc, &argv, true);
-    if (FLAGS_daemon) {
-        alpha::Logger::Init(progname);
-    } else {
-        alpha::Logger::Init(progname, alpha::Logger::LogToStderr);
-    }
+    alpha::Logger::Init(progname);
+    //if (FLAGS_daemon) {
+    //}
     alpha::EventLoop loop;
     auto quit_loop = [&loop]{
         return loop.Quit();

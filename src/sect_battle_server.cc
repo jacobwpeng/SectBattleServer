@@ -21,21 +21,23 @@
 #include <alpha/udp_server.h>
 #include <alpha/net_address.h>
 #include <alpha/mmap_file.h>
+#include <alpha/random.h>
 #include "tt_client.h"
 
 #include "sect_battle_protocol.pb.h"
 #include "sect_battle_server_message_dispatcher.h"
 #include "sect_battle_backup_metadata.h"
+#include "sect_battle_backup_coroutine.h"
 #include "sect_battle_recover_coroutine.h"
 
-DEFINE_string(data_path, "/tmp", "Path of Local mmap files");
-DEFINE_string(bind_ip, "0.0.0.0", "Server ip");
-DEFINE_string(backup_tt_ip, "127.0.0.1", "Backup tokyotyrant server ip");
-DEFINE_int32(backup_tt_port, 8080, "Backup tokyotyrant server port");
-DEFINE_int32(bind_port, 9123, "Server port");
-DEFINE_bool(force_backup, false, "Backup all data to remote db");
-DEFINE_bool(recovery_mode, false, "Restore data from remote db"
-        ", CAUTION!!! Run in this mode only when all local mmap files are damaged");
+DEFINE_string(data_path, "/tmp", "mmap文件存放路径");
+DEFINE_string(bind_ip, "0.0.0.0", "服务器监听的本地ip地址");
+DEFINE_int32(bind_port, 9123, "服务器监听的本地端口");
+DEFINE_string(backup_tt_ip, "127.0.0.1", "备份TT的ip地址");
+DEFINE_int32(backup_tt_port, 8080, "备份TT的端口");
+DEFINE_int32(battle_field_cache_ttl, 0, "返回给CGI的全局战场信息缓存时间(毫秒)");
+DEFINE_bool(recovery_mode, false, "以恢复模式启动，从备份TT恢复mmap文件\n"
+        "注意，使用本选项会覆盖本地所有mmap文件！");
 
 namespace detail {
     std::unique_ptr<google::protobuf::Message> CreateMessage(const std::string& name) {
@@ -57,16 +59,13 @@ namespace detail {
 namespace SectBattle {
     static const char* kBackupPrefix[2] = {"tick", "tock"};
     Server::Server(alpha::EventLoop* loop, alpha::Slice file)
-        :loop_(loop), conf_file_(file.ToString()), mt_(rd_()) {
+        :loop_(loop), conf_file_(file.ToString()) {
     }
     Server::~Server() = default;
 
     bool Server::Run() {
         using namespace std::placeholders;
         tt_client_.reset(new tokyotyrant::Client(loop_));
-        owner_map_file_path_ = FLAGS_data_path + "/" + "owner_map.mmap";
-        combatant_map_file_path_ = FLAGS_data_path + "/" + "combatant_map.mmap";
-        backup_metadata_file_path_ = FLAGS_data_path + "/backup_metadata.mmap";
         if (FLAGS_recovery_mode) {
             return RunRecovery();
         }
@@ -81,18 +80,36 @@ namespace SectBattle {
                 std::bind(&Server::HandleMove, this, _1, _2));
         dispatcher_->Register<ChangeSectRequest>(
                 std::bind(&Server::HandleChangeSect, this, _1, _2));
+        dispatcher_->Register<ChangeOpponentRequest>(
+                std::bind(&Server::HandleChangeOpponent, this, _1, _2));
         dispatcher_->Register<CheckFightRequest>(
                 std::bind(&Server::HandleCheckFight, this, _1, _2));
-        dispatcher_->Register<ResetPositionRequest>(
-                std::bind(&Server::HandleResetPosition, this, _1, _2));
+        dispatcher_->Register<ReportFightRequest>(
+                std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
         loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        LOG_INFO << "BuildMMapedData";
         bool ok =  BuildMMapedData();
         if (!ok) {
             return false;
         }
+        LOG_INFO << "BuildMMapedData done";
 
+        auto it = std::find(std::begin(kBackupPrefix),
+                std::end(kBackupPrefix), backup_metadata_->LatestBackupPrefix());
+        if (it == std::end(kBackupPrefix)) {
+            current_backup_prefix_index_ = 0;
+        } else {
+            current_backup_prefix_index_ = std::distance(it, std::end(kBackupPrefix)) - 1;
+            assert (current_backup_prefix_index_ == 0 || current_backup_prefix_index_ == 1);
+        }
+        LOG_INFO << "owner_map_->max_size() = " << owner_map_->max_size();
+        LOG_INFO << "combatant_map_->max_size() = " << combatant_map_->max_size();
+        LOG_INFO << "opponent_map_->max_size() = " << opponent_map_->max_size();
+        //只对加入战场做了限制，所以记录对手的map的上限要大于等于战场人数上限
+        assert (opponent_map_->max_size() >= combatant_map_->max_size());
         return server_->Start(addr, std::bind(&Server::HandleMessage, this, _1, _2));
+        //return false;
     }
     
     bool Server::RunRecovery() {
@@ -101,9 +118,12 @@ namespace SectBattle {
             recover_coroutine_.reset (new RecoverCoroutine(
                 tt_client_.get(), 
                 backup_tt_address,
-                backup_metadata_file_path_, 
-                owner_map_file_path_,
-                combatant_map_file_path_));
+                GetMMapedFilePath(kBackupMetaDataKey),
+                GetMMapedFilePath(kOwnerMapDataKey),
+                GetMMapedFilePath(kCombatantMapDataKey),
+                GetMMapedFilePath(kOpponentMapDataKey)
+                )
+            );
         }
         const int kCheckRecoverDoneInterval = 1000; //1s
         loop_->RunEvery(kCheckRecoverDoneInterval,
@@ -122,80 +142,128 @@ namespace SectBattle {
     }
 
     bool Server::BuildMMapedData() {
-        const int kBackupMetaDataFileSize = 20480; //10KiB
         const int kOwnerMapFileSize = 20480; //10KiB
-        const int kGarrisonMapFileSize = 1 << 27; //128MiB
-        const int flags = alpha::MMapFile::Flags::kCreateIfNotExists;
-        auto file = alpha::MMapFile::Open(owner_map_file_path_, kOwnerMapFileSize,
-                flags);
-        if (file == nullptr) {
-            LOG_ERROR << "Create MMapFile failed, path = " << owner_map_file_path_;
-            return false;
-        }
+        const int kBackupMetaDataFileSize = 20480; //10KiB
+        const int kCombatantMapFileSize = 120 * (1 << 20); //120MiB
+        const int kOpponentMapFileSize = 200 * (1 << 20); //220MiB
+        //这个SkipList还是太耗费内存了，迫切需要改进
 
-        if (file->newly_created()) {
-            owner_map_ = alpha::SkipList<Pos, SectType>::Create(
-                    static_cast<char*>(file->start()), file->size());
-        } else {
-            owner_map_ = alpha::SkipList<Pos, SectType>::Restore(
-                    static_cast<char*>(file->start()), file->size());
-        }
+        owner_map_ = BuildMMapedMapFromFile<OwnerMap>(kOwnerMapDataKey,
+                kOwnerMapFileSize);
         if (owner_map_ == nullptr) {
-            LOG_ERROR << "Build owner map failed, file->size() = " << file->size()
-                << ", file->newly_created() = " << file->newly_created();
             return false;
         }
 
-        owner_map_file_ = std::move(file);
-        LOG_INFO << "owner map max_size = " << owner_map_->max_size();
-
-        file = alpha::MMapFile::Open(combatant_map_file_path_, kGarrisonMapFileSize,
-                flags);
-        if (file == nullptr) {
-            LOG_ERROR << "Create MMapFile failed, path = " << combatant_map_file_path_;
-            return false;
-        }
-                
-        if (file->newly_created()) {
-            combatant_map_ = alpha::SkipList<uint32_t, CombatantLite>::Create(
-                    static_cast<char*>(file->start()), file->size());
-        } else {
-            combatant_map_ = alpha::SkipList<uint32_t, CombatantLite>::Restore(
-                    static_cast<char*>(file->start()), file->size());
-        }
-
+        combatant_map_ = BuildMMapedMapFromFile<CombatantMap>(kCombatantMapDataKey,
+                kCombatantMapFileSize);
         if (combatant_map_ == nullptr) {
-            LOG_ERROR << "Build combatant map failed, file->size() = " << file->size()
-                << ", file->newly_created() = " << file->newly_created();
             return false;
         }
-        combatant_map_file_ = std::move(file);
-        LOG_INFO << "combatant map max_size = " << combatant_map_->max_size();
 
-        file = alpha::MMapFile::Open(backup_metadata_file_path_,
-                kBackupMetaDataFileSize, flags);
+        opponent_map_ = BuildMMapedMapFromFile<OpponentMap>(kOpponentMapDataKey,
+                kOpponentMapFileSize);
+        if (opponent_map_ == nullptr) {
+            return false;
+        }
+
+        backup_metadata_ = BuildBackupMetaDataFromFile(kBackupMetaDataFileSize);
+        if (backup_metadata_ == nullptr) {
+            return false;
+        }
+        return true;
+    }
+
+    BackupMetadata* Server::BuildBackupMetaDataFromFile(size_t size) {
+        std::string path = GetMMapedFilePath(kBackupMetaDataKey);
+        const int flags = alpha::MMapFile::Flags::kCreateIfNotExists;
+        auto file = alpha::MMapFile::Open(path.data(), size, flags);
         if (file == nullptr) {
-            LOG_ERROR << "Create MMapFile failed, path = " << backup_metadata_file_path_;
-            return false;
+            LOG_ERROR << "Open MMapFile failed, path = " << path.data()
+                << ", size = " << size;
+            return nullptr;
         }
 
+        BackupMetadata* res;
         if (file->newly_created()) {
-            backup_metadata_ = BackupMetadata::Create(
+            res = BackupMetadata::Create(
                     static_cast<char*>(file->start()), file->size());
         } else {
-            backup_metadata_ = BackupMetadata::Restore(
+            res = BackupMetadata::Restore(
                     static_cast<char*>(file->start()), file->size());
         }
 
-        if (backup_metadata_ == nullptr) {
-            LOG_ERROR << "Build backup_meatdata failed, file->size() = " << file->size()
+        if (res == nullptr) {
+            LOG_ERROR << "Build backup_meatdata failed"
+                << "path = " << path.data()
+                << ", file->size() = " << file->size()
                 << ", file->newly_created() = " << file->newly_created();
-            return false;
+            return nullptr;
+        }
+        auto p = mmaped_files_.insert(std::make_pair(kBackupMetaDataKey, std::move(file)));
+        assert (p.second);
+        (void)p;
+        return res;
+    }
+
+    std::string Server::GetMMapedFilePath(const char* key) const {
+        return FLAGS_data_path + "/" + std::string(key) + ".mmap";
+    }
+
+    bool Server::BuildRunData() {
+        //从通过mmap落地的三个SkipList中构造出跑在内存里的各种数据
+        //本来只有一份数据是最好维护的，但是由于结构比较复杂，map里面嵌套各种东西
+        //所以就维护了两份数据，不过运行时只会写SkipList，不会读
+        //所以也不存在不一致的情况
+        //先确定是初始状态
+        assert (battle_field_.empty());
+        assert (sects_.empty());
+        assert (combatants_.empty());
+
+        ReadBattleFieldFromConf();
+        ReadSectFromConf();
+
+        //恢复格子信息
+        for (auto it = owner_map_->begin(); it != owner_map_->end(); ++it) {
+            auto field = CheckGetField(it->first);
+            field.ChangeOwner(it->second);
         }
 
-        backup_metadata_file_ = std::move(file);
+        //恢复玩家信息
+        for (auto it = combatant_map_->begin(); it != combatant_map_->end(); ++it) {
+            UinType uin = it->first;
+            const CombatantLite& lite = it->second;
+            auto field = CheckGetField(lite.pos);
+            auto combatant_iter = field.AddGarrison(uin, lite.level);
+            auto sect = CheckGetSect(field.Owner());
+            auto res = combatants_.emplace(std::piecewise_construct,
+                    std::forward_as_tuple(uin),
+                    std::forward_as_tuple(&sect, lite.pos, combatant_iter));
+            assert (res.second);
+            (void)res;
+        }
 
+        //恢复玩家的对手信息
+        for (auto it = opponent_map_->begin(); it != opponent_map_->end(); ++it) {
+            UinType uin = it->first;
+            auto combatant = CheckGetCombatant(uin);
+            for (int i = static_cast<int>(Direction::kUp);
+                    i <= static_cast<int>(Direction::kDonw);
+                    ++i) {
+                assert (IsValidDirection(i));
+                Direction d = static_cast<Direction>(i);
+                auto opponents = it->second.GetOpponents(d);
+                if (!opponents.empty()) {
+                    combatant.ChangeOpponents(d, opponents);
+                }
+            }
+        }
         return true;
+    }
+
+    void Server::ReadBattleFieldFromConf() {
+    }
+
+    void Server::ReadSectFromConf() {
     }
 
     ssize_t Server::HandleMessage(alpha::Slice packet, char* out) {
@@ -223,7 +291,7 @@ namespace SectBattle {
     }
 
     ssize_t Server::HandleQueryBattleField(const QueryBattleFieldRequest* req, char* out) {
-        if (unlikely(!req->has_uin())) {
+        if (unlikely(!req->has_uin() || !req->has_level())) {
             return -1;
         }
 
@@ -232,12 +300,20 @@ namespace SectBattle {
         resp.set_uin(uin);
 
         auto combatant_iter = combatants_.find(uin);
-        Pos pos = Pos::Create(0, 0);
+        Pos pos = Pos::CreateInvalid();
         if (combatant_iter == combatants_.end()) {
             resp.set_code(static_cast<int>(Code::kNotInBattle));
         } else {
             pos = combatant_iter->second.CurrentPos();
             resp.set_code(static_cast<int>(Code::kOk));
+        }
+
+        //处理等级变了的情况
+        auto & combatant = combatant_iter->second;
+        auto old_level = combatant.Iterator()->first;
+        if (req->level() != old_level) {
+            auto field = CheckGetField(combatant.CurrentPos());
+            field.UpdateGarrisonLevel(uin, req->level(), combatant.Iterator());
         }
 
         SetBattleField(pos, resp.mutable_battle_field());
@@ -269,24 +345,28 @@ namespace SectBattle {
             } else {
                 resp.set_code(static_cast<int>(Code::kJoinedBattle));
             }
+        } else if (unlikely(combatant_map_->size() == combatant_map_->max_size())) {
+            //落地用的mmaped文件已经满了, 没法再增加人了
+            resp.set_code(static_cast<int>(Code::kBattleFieldFull));
         } else {
             const auto sect_type = RandomSect();
-            auto sect_iter = sects_.find(sect_type);
-            assert (sect_iter != sects_.end());
-            const auto born_pos = sect_iter->second.BornPos();
-            auto field_iter = battle_field_.find(born_pos);
-            assert (field_iter != battle_field_.end());
+
+            auto sect = CheckGetSect(sect_type);
+            auto field = CheckGetField(sect.BornPos());
 
             //加入到对应门派中
-            sect_iter->second.AddMember(uin);
+            sect.AddMember(uin);
             //加入到对应门派出生点
-            auto it = field_iter->second.AddGarrison(uin, level);
+            auto it = field.AddGarrison(uin, level);
             //加入到参战人员中
-            auto res = combatants_.emplace(uin, Combatant(&sect_iter->second, born_pos, it));
+            auto res = combatants_.emplace(std::piecewise_construct,
+                    std::forward_as_tuple(uin),
+                    std::forward_as_tuple(&sect, sect.BornPos(), it));
             assert (res.second);
             combatant_iter = res.first;
             resp.set_sect(static_cast<uint32_t>(sect_type));
             resp.set_code(static_cast<int>(Code::kOk));
+            RecordCombatant(uin, sect.BornPos(), level);
         }
         assert (combatant_iter != combatants_.end());
         SetBattleField(combatant_iter->second.CurrentPos(), resp.mutable_battle_field());
@@ -322,12 +402,7 @@ namespace SectBattle {
             resp.set_code(static_cast<int>(Code::kInvalidDirection));
         } else {
             auto new_pos = res.first;
-            auto current_field_iter = battle_field_.find(current_pos);
-            auto new_field_iter = battle_field_.find(new_pos);
-            assert (current_field_iter != battle_field_.end());
-            assert (new_field_iter != battle_field_.end());
-            auto & current_field = current_field_iter->second;
-            auto & new_field = current_field_iter->second;
+            auto new_field = CheckGetField(new_pos);
 
             auto owner = new_field.Owner();
             OpponentList opponents = combatant.GetOpponents(direction);
@@ -340,24 +415,21 @@ namespace SectBattle {
             if (owner == SectType::kNone || owner == combatant.CurrentSect()->Type()
                     || opponents.empty()) {
                 //移动到没有人占领，或者是属于本门派的格子, 或者这个格子没有人
-                //从原来的格子里干掉自己
-                current_field.ReduceGarrison(uin, combatant.Iterator());
-                //放到新的格子里
-                auto it = new_field.AddGarrison(uin, req->level());
-                //设置新的位置
-                combatant.MoveTo(new_pos);
-                //设置新的驻军索引
-                combatant.SetIterator(it);
-                //新格子换主人了
+                //这个格子换主人了
                 new_field.ChangeOwner(combatant.CurrentSect()->Type());
+                //更新玩家的位置
+                MoveCombatant(uin, req->level(), &combatant, new_pos);
                 resp.set_code(static_cast<int>(Code::kOk));
                 pos_changed = true;
+                RecordSect(new_pos, combatant.CurrentSect()->Type());
             } else {
                 //移动到其它门派占领的格子上, 而且格子里有人
                 assert (!opponents.empty());
+                combatant.ChangeOpponents(direction, opponents);
                 resp.set_code(static_cast<int>(Code::kOccupied));
                 std::copy(opponents.begin(), opponents.end(), 
                     google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
+                RecordOpponent(uin, direction, opponents);
             }
             SetBattleField(pos_changed ? new_pos : current_pos, 
                     resp.mutable_battle_field());
@@ -393,37 +465,61 @@ namespace SectBattle {
             return WriteResponse(resp, out);
         }
 
-        auto current_sect_iter = sects_.find(combatant.CurrentSect()->Type());
-        assert (current_sect_iter != sects_.end());
-        auto & current_sect = current_sect_iter->second;
-        auto new_sect_iter = sects_.find(sect_type);
-        assert (new_sect_iter != sects_.end());
-        auto & new_sect = new_sect_iter->second;
+        auto current_sect = CheckGetSect(combatant.CurrentSect()->Type());
+        auto new_sect = CheckGetSect(sect_type);
         auto new_sect_born_pos = new_sect.BornPos();
-        auto current_field_iter = battle_field_.find(combatant.CurrentPos());
-        assert (current_field_iter != battle_field_.end());
-        auto & current_field = current_field_iter->second;
-        auto new_field_iter = battle_field_.find(new_sect_born_pos);
-        assert (new_field_iter != battle_field_.end());
-        auto & new_field = new_field_iter->second;
 
         //从旧的门派里面干掉他
         current_sect.RemoveMember(uin);
-        //从原来的格子干掉他
-        current_field.ReduceGarrison(uin, combatant.Iterator());
         //然后加到新的门派
         new_sect.AddMember(uin);
-        //然后加到新格子中
-        auto it = new_field.AddGarrison(uin, level);
-        //然后更新玩家身上记录的驻军位置
-        combatant.SetIterator(it);
         //更新玩家所属门派
         combatant.ChangeSect(&new_sect);
-        //更新玩家当前位置
-        combatant.MoveTo(new_sect_born_pos);
-
+        //更新玩家的位置
+        MoveCombatant(uin, level, &combatant, new_sect_born_pos);
         resp.set_code(static_cast<int>(Code::kOk));
         SetBattleField(new_sect_born_pos, resp.mutable_battle_field());
+        return WriteResponse(resp, out);
+    }
+
+    ssize_t Server::HandleChangeOpponent(const ChangeOpponentRequest* req, char* out) {
+        if (unlikely(!req->has_uin() || !req->has_level() || !req->has_direction())) {
+            return -1;
+        }
+        if (unlikely(!IsValidDirection(req->direction()))) {
+            return -2;
+        }
+
+        UinType uin = req->uin();
+        LevelType level = req->level();
+        Direction direction = static_cast<Direction>(req->direction());
+
+        ChangeOpponentResponse resp;
+        resp.set_uin(uin);
+        auto it = combatants_.find(uin);
+        if (it == combatants_.end()) {
+            resp.set_code(static_cast<int>(Code::kNotInBattle));
+            return WriteResponse(resp, out);
+        }
+
+        auto & combatant = it->second;
+        auto old_opponents = combatant.GetOpponents(direction);
+        if (old_opponents.empty()) {
+            resp.set_code(static_cast<int>(Code::kNoOpponent));
+            return WriteResponse(resp, out);
+        }
+        auto field = CheckGetField(combatant.CurrentPos());
+        auto new_opponents = field.GetOpponents(level);
+        if (new_opponents.empty()) {
+            resp.set_code(static_cast<int>(Code::kNoOpponentFound));
+        } else {
+            combatant.ChangeOpponents(direction, new_opponents);
+            std::copy(new_opponents.begin(), new_opponents.end(), 
+                google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
+            RecordOpponent(uin, direction, new_opponents);
+            resp.set_code(static_cast<int>(Code::kOk));
+        }
+        SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
         return WriteResponse(resp, out);
     }
 
@@ -483,67 +579,156 @@ namespace SectBattle {
         return WriteResponse(resp, out);
     }
 
-    ssize_t Server::HandleResetPosition(const ResetPositionRequest* req, char*) {
-        if (unlikely(!req->has_uin())) {
+    ssize_t Server::HandleReportFight(const ReportFightRequest* req, char*) {
+        if (unlikely(!req->has_uin() 
+                    || !req->has_opponent() 
+                    || !req->has_direction()
+                    || !req->has_reset_self() 
+                    || !req->has_reset_opponent()
+                    || !req->has_level()
+                    || !req->has_opponent_level())) {
             return -1;
         }
 
-        UinType uin = req->uin();
+        if (unlikely(!IsValidDirection(req->direction()))) {
+            return -1;
+        }
+
+        auto uin = req->uin();
+        auto opponent_uin = req->opponent();
+        auto direction = static_cast<Direction>(req->direction());
+        auto should_reset_self = req->reset_self();
+        auto should_reset_opponent = req->reset_opponent();
+
+        ReportFightResponse resp;
+        resp.set_uin(uin);
         auto combatant_iter = combatants_.find(uin);
-        if (unlikely(combatant_iter == combatants_.end())) {
-            LOG_WARNING << "Invalid ResetPositionRequest from client, uin = " << uin;
-            return -1;
+        auto opponent_iter = combatants_.find(opponent_uin);
+        if (combatant_iter == combatants_.end()) {
+            resp.set_code(static_cast<int>(Code::kNotInBattle));
+        } else if (opponent_iter == combatants_.end()) {
+            resp.set_code(static_cast<int>(Code::kInvalidOpponent));
+        } else {
+            auto& self = combatant_iter->second;
+            auto& opponent = opponent_iter->second;
+            self.ClearOpponents(direction);
+            auto expected_opponent_pos = self.CurrentPos();
+            auto res = expected_opponent_pos.Apply(direction);
+            assert (res.second);
+            assert (opponent.CurrentPos() == expected_opponent_pos);
+            (void)res;
+
+            if (should_reset_self) {
+                MoveCombatant(uin, req->level(), &self, self.CurrentSect()->BornPos());
+            }
+            if (should_reset_opponent) {
+                MoveCombatant(opponent_uin, req->opponent_level(), &opponent,
+                        opponent.CurrentSect()->BornPos());
+            }
         }
-
-        auto & combatant = combatant_iter->second;
-        const LevelType level = combatant.Iterator()->first;
-        auto sect = combatant.CurrentSect();
-        auto born_pos = sect->BornPos();
-        auto current_field_iter = battle_field_.find(combatant.CurrentPos());
-        assert (current_field_iter != battle_field_.end());
-        auto new_field_iter = battle_field_.find(born_pos);
-        assert (new_field_iter != battle_field_.end());
-
-        //从之前的格子干掉他
-        current_field_iter->second.ReduceGarrison(uin, combatant.Iterator());
-        //加入到新的格子
-        auto it = new_field_iter->second.AddGarrison(uin, level);
-        //重置回对应门派出生点
-        combatant.MoveTo(born_pos);
-        //设置驻军位置
-        combatant.SetIterator(it);
-
         return 0;
     }
 
-    void Server::SetBattleField(const Pos& current_pos, BattleField* battle_field) {
+    void Server::MoveCombatant(UinType uin, LevelType level,
+            Combatant* combatant, Pos new_pos) {
+        assert (combatant);
+        auto it = combatants_.find(uin);
+        assert (it != combatants_.end());
+        assert (&it->second == combatant);
+        (void)it;
+        if (combatant->CurrentPos() == new_pos) {
+            return;
+        }
+
+        auto current_field = CheckGetField(combatant->CurrentPos());
+        auto new_field = CheckGetField(new_pos);
+
+        //从旧的格子里干掉
+        current_field.ReduceGarrison(uin, combatant->Iterator());
+        //放到新的格子中
+        auto new_iter = new_field.AddGarrison(uin, level);
+        //然后更新玩家的当前位置
+        combatant->MoveTo(new_pos);
+        //更新玩家在格子中的索引
+        combatant->SetIterator(new_iter);
+        //落地改动
+        RecordCombatant(uin, new_pos, level);
+    }
+
+    void Server::RecordCombatant(UinType uin, Pos current_pos, LevelType level) {
+        (*combatant_map_)[uin] = CombatantLite::Create(current_pos, level);
+    }
+
+    void Server::RecordSect(Pos pos, SectType sect_type) {
+        (*owner_map_)[pos] = sect_type;
+    }
+
+    void Server::RecordOpponent(UinType uin, Direction d, const OpponentList& opponents) {
+        auto it = opponent_map_->find(uin);
+        if (it == opponent_map_->end()) {
+            auto p = opponent_map_->insert(std::make_pair(uin, OpponentLite::Default()));
+            it = p.first;
+        }
+        assert (it != opponent_map_->end());
+        it->second.ChangeOpponents(d, opponents);
+    }
+
+    void Server::SetBattleField(Pos current_pos, BattleField* battle_field) {
         assert (battle_field);
-        battle_field->mutable_self_position()->set_x(current_pos.X());
-        battle_field->mutable_self_position()->set_y(current_pos.Y());
-
-        //TODO: 是否需要cache一份，防止每次都遍历
-        for (const auto & p : battle_field_) {
-            const Field& field = p.second;
-            auto cell = battle_field->add_field();
-            cell->mutable_pos()->set_x(p.first.X());
-            cell->mutable_pos()->set_y(p.first.Y());
-            cell->set_owner(static_cast<unsigned>(field.Owner()));
-            cell->set_garrison_num(field.GarrisonNum());
+        if (unlikely(cached_battle_field_ == nullptr)) {
+            cached_battle_field_.reset(new BattleField);
         }
-        assert (battle_field->field_size() == 100);
+        static alpha::TimeStamp cache_create_time = 0;
 
-        for (const auto & p : sects_) {
-            battle_field->add_sect_members_count(p.second.MemberCount());
+        if (cache_create_time + FLAGS_battle_field_cache_ttl < alpha::Now()) {
+            cached_battle_field_->mutable_self_position()->set_x(current_pos.X());
+            cached_battle_field_->mutable_self_position()->set_y(current_pos.Y());
+
+            //TODO: 是否需要cache一份，防止每次都遍历
+            for (const auto & p : battle_field_) {
+                const Field& field = p.second;
+                auto cell = cached_battle_field_->add_field();
+                cell->mutable_pos()->set_x(p.first.X());
+                cell->mutable_pos()->set_y(p.first.Y());
+                cell->set_owner(static_cast<unsigned>(field.Owner()));
+                cell->set_garrison_num(field.GarrisonNum());
+            }
+            assert (cached_battle_field_->field_size() == 100);
+
+            for (const auto & p : sects_) {
+                cached_battle_field_->add_sect_members_count(p.second.MemberCount());
+            }
+
+            assert (cached_battle_field_->sect_members_count_size()
+                    == static_cast<int>(SectType::kMax) - 1);
+            cache_create_time = alpha::Now();
         }
-
-        assert (battle_field->sect_members_count_size() 
-                == static_cast<int>(SectType::kMax) - 1);
+        battle_field->CopyFrom(*cached_battle_field_);
     }
 
     ssize_t Server::WriteResponse(const google::protobuf::Message& resp, char* out) {
         bool ok = resp.SerializeToArray(out, alpha::UdpServer::kOutputBufferSize);
         assert (ok);
+        (void)ok;
         return resp.ByteSize();
+    }
+
+    Combatant& Server::CheckGetCombatant(UinType uin) {
+        auto it = combatants_.find(uin);
+        assert (it != combatants_.end());
+        return it->second;
+    }
+
+    Field& Server::CheckGetField(Pos pos) {
+        auto it = battle_field_.find(pos);
+        assert (it != battle_field_.end());
+        return it->second;
+    }
+
+    Sect& Server::CheckGetSect(SectType sect_type) {
+        auto it = sects_.find(sect_type);
+        assert (it != sects_.end());
+        return it->second;
     }
 
     void Server::BackupRoutine(bool force) {
@@ -558,11 +743,14 @@ namespace SectBattle {
                         FLAGS_backup_tt_port);
                 assert (current_backup_prefix_index_ == 0
                         || current_backup_prefix_index_ == 1);
+                LOG_INFO << "Before create BackupCoroutine";
                 backup_coroutine_.reset(new BackupCoroutine(
-                            tt_client_.get(), backup_tt_address, 
+                            tt_client_.get(),
+                            backup_tt_address,
                             kBackupPrefix[current_backup_prefix_index_],
-                            owner_map_file_.get(), combatant_map_file_.get(),
+                            mmaped_files_,
                             backup_metadata_));
+                LOG_INFO << "After create BackupCoroutine";
                 backup_start_time_ = alpha::Now();
                 backup_coroutine_->Resume();
             }
@@ -579,8 +767,7 @@ namespace SectBattle {
     }
 
     SectType Server::RandomSect() {
-        auto random = dist_(mt_);
-        auto max = static_cast<int>(SectType::kMax) - 1;
-        return static_cast<SectType>(random % max + 1);
+        auto max = static_cast<int>(SectType::kMax);
+        return static_cast<SectType>(alpha::Random::Rand32(1, max));
     }
 };

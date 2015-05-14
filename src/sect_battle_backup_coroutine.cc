@@ -19,27 +19,30 @@ namespace SectBattle {
     BackupCoroutine::BackupCoroutine(tokyotyrant::Client* client, 
                     const alpha::NetAddress& backup_server_address, 
                     alpha::Slice backup_prefix, 
-                    const alpha::MMapFile* owner_map_file,
-                    const alpha::MMapFile* combatant_map_file,
+                    const MMapedFileMap& mmaped_files,
                     BackupMetadata* md)
             :client_(client), backup_server_address_(backup_server_address),
              backup_prefix_(backup_prefix.ToString()), 
-             owner_map_buffer_(owner_map_file->size()), 
-             combatant_map_buffer_(combatant_map_file->size()),
              backup_metadata_(md) {
-
             assert (md);
             assert (client);
-            ::memcpy(owner_map_buffer_.data(), owner_map_file->start(), 
-                    owner_map_file->size());
-            ::memcpy(combatant_map_buffer_.data(), combatant_map_file->start(), 
-                    combatant_map_file->size());
+
+            for (const auto& p : mmaped_files) {
+                Buffer buf(p.second->size());
+                ::memcpy(buf.data(), p.second->start(), p.second->size());
+                mmaped_file_copies_.emplace(p.first, buf);
+            }
     }
 
     void BackupCoroutine::Routine() {
-        BackupMetadata md = BackupMetadata::Default();
-        md.SetBackupStartTime(alpha::Now());
-        md.SetLatestBackupPrefix(backup_prefix_);
+        Buffer & buffer = mmaped_file_copies_.at(kBackupMetaDataKey);
+        BackupMetadata * md = BackupMetadata::Restore(buffer.data(), buffer.size());
+        if (md == nullptr) {
+            LOG_ERROR << "Restore BackupMetadata from mmaped_file_copies_ failed";
+            return;
+        }
+        md->SetBackupStartTime(alpha::Now());
+        md->SetLatestBackupPrefix(backup_prefix_);
         client_->SetCoroutine(this);
         const int kDataExpireTime = 5 * 60 * 1000; //5mins in milliseconds
         auto connect_start_time = alpha::Now();
@@ -52,6 +55,33 @@ namespace SectBattle {
             LOG_WARNING << "Backup data expired";
             return;
         }
+
+        if (DeletePreviousBackup() == false) {
+            LOG_WARNING << "DeletePreviousBackup failed";
+            return;
+        }
+
+        if (BackupMMapedFiles(false) == false) {
+            LOG_WARNING << "BackupMMapedFiles without backup metadata failed";
+            return;
+        }
+        md->SetBackupEndTime(alpha::Now());
+
+        if(BackupMMapedFiles(true) == false) {
+            LOG_WARNING << "Backup metadata failed";
+            return;
+        }
+
+        succeed_ = true;
+        *backup_metadata_ = *md;
+        LOG_INFO << "Backup done, prefix = " << backup_prefix_;
+    }
+
+    bool BackupCoroutine::succeed() const {
+        return succeed_;
+    }
+
+    bool BackupCoroutine::DeletePreviousBackup() {
         //先清空所有prefix开头的key
         std::vector<std::string> keys;
         int err = client_->GetForwardMatchKeys(backup_prefix_,
@@ -61,7 +91,7 @@ namespace SectBattle {
             LOG_WARNING << "GetForwardMatchKeys failed"
                 << ", backup_prefix_ = " << backup_prefix_
                 << ", err = " << err;
-            return;
+            return false;
         }
 
         LOG_INFO << "keys.size() = " << keys.size();
@@ -69,59 +99,68 @@ namespace SectBattle {
             err = client_->Out(key);
             if (err) {
                 LOG_WARNING << "Out failed, key = " << key << ", err = " << err;
-                return;
+                return false;
             }
         }
-
-        std::string owner_map_key = backup_prefix_ + "_owner_map";
-        auto data = alpha::Slice(owner_map_buffer_.data(), owner_map_buffer_.size());
-        err = client_->Put(owner_map_key, data);
-        if (err) {
-            LOG_WARNING << "Put owner_map to tt failed, key = "
-                << owner_map_key << ", data.size() = " << data.size();
-            return;
-        }
-        LOG_INFO << "Put owner_map to tt done, key = " << owner_map_key;
-
-        std::string combatant_map_key = backup_prefix_ + "_combatant_map";
-        data = alpha::Slice(combatant_map_buffer_.data(), combatant_map_buffer_.size());
-
-        const int kParts = 8;
-        assert (combatant_map_buffer_.size() % kParts == 0);
-        auto part_size = combatant_map_buffer_.size() / kParts;
-        auto buffer = combatant_map_buffer_.data();
-        md.SetCombatantMapDataKeyNum(kParts);
-        LOG_INFO << "combatant map part size = " << part_size;
-        for (auto i = 0u; i < kParts; ++i) {
-            std::string part_key = combatant_map_key + "_" + std::to_string(i);
-            err = client_->Put(part_key, alpha::Slice(buffer, part_size));
-            if (err) {
-                LOG_WARNING << "Put combatant_map part " << i << " to tt failed, key = "
-                    << part_key << ", offset = " << buffer - combatant_map_buffer_.data();
-                assert (false);
-                return;
-            }
-            LOG_INFO << "Put combatant_map part " << i << " done";
-            buffer += part_size;
-        }
-        LOG_INFO << "Put combatant_map to tt done, key = " << owner_map_key;
-
-        md.SetBackupEndTime(alpha::Now());
-        std::string saved;
-        md.CopyTo(&saved);
-
-        err = client_->Put("backup_metadata", saved);
-        if (err) {
-            LOG_WARNING << "Put backup metadata failed";
-            return;
-        }
-        LOG_INFO << "\n" << alpha::HexDump(saved);
-        succeed_ = true;
-        *backup_metadata_ = md;
-        LOG_INFO << "Backup done, prefix = " << backup_prefix_;
+        return true;
     }
 
-    bool BackupCoroutine::succeed() const {
-        return succeed_;
+    bool BackupCoroutine::BackupMMapedFiles(bool update_backup_metadata) {
+        //TT其实是有value大小限制的
+        const size_t kMaxValueSize = 1 << 24;
+        for (const auto& p : mmaped_file_copies_) {
+            int parts = 0;
+            std::string key = backup_prefix_ + "_" + p.first;
+
+            if (!update_backup_metadata && p.first == kBackupMetaDataKey) {
+                //不备份metadata
+                continue;
+            }
+            if (update_backup_metadata && p.first != kBackupMetaDataKey) {
+                //只备份metadata
+                continue;
+            }
+
+            if (p.first == kBackupMetaDataKey) {
+                //metadata只有一份, 所以不需要前缀
+                key = p.first;
+            }
+
+            const Buffer& buffer = p.second;
+            alpha::Slice data = alpha::Slice(buffer.data(), buffer.size());
+            if (buffer.size() > kMaxValueSize) {
+                parts = buffer.size() / kMaxValueSize + 1;
+            }
+            LOG_INFO << "key = " << key << ", buffer.size() = " << buffer.size()
+                << "parts = " << parts;
+
+            //可以一次性备份的
+            if (parts == 0 && !BackupMMapedFilePart(key, data)) {
+                return false;
+            }
+
+            //需要多次备份的
+            if (parts != 0) {
+                for (int i = 0; i < parts; ++i) {
+                    std::string part_key = key + "_" + std::to_string(i + 1);
+                    alpha::Slice part_data = data.subslice(0, kMaxValueSize);
+                    if (!BackupMMapedFilePart(part_key, part_data)) {
+                        return false;
+                    } else {
+                        data = data.RemovePrefix(std::min(kMaxValueSize, data.size()));
+                    }
+                }
+                assert (data.empty());
+            }
+        }
+        return true;
+    }
+
+    bool BackupCoroutine::BackupMMapedFilePart(alpha::Slice key, alpha::Slice data) {
+        LOG_INFO << "key = " << key.data();
+        int err = client_->Put(key, data);
+        LOG_ERROR_IF(err != 0) << "Put failed, key = " << key.ToString()
+            << ", err = " << err;
+        return err == 0;
     }
 }

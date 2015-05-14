@@ -76,18 +76,11 @@ namespace SectBattle {
         backup_prefix_[prefix.size()] = '\0';
     }
 
-    void BackupMetadata::SetCombatantMapDataKeyNum(uint32_t num) {
-        combatant_map_data_key_num_ = num;
-    }
-
-    void BackupMetadata::CopyTo(std::string* saved) const {
-        saved->assign(reinterpret_cast<const char*>(this), sizeof(BackupMetadata));
-    }
-
     std::string BackupMetadata::LatestBackupPrefix() const {
         auto it = std::find(std::begin(backup_prefix_),
                 std::end(backup_prefix_), '\0');
         assert (it != std::end(backup_prefix_));
+        (void)it;
         return backup_prefix_;
     }
 
@@ -97,9 +90,5 @@ namespace SectBattle {
 
     alpha::TimeStamp BackupMetadata::EndTime() const {
         return backup_end_time_;
-    }
-    
-    uint32_t BackupMetadata::CombatantMapDataKeyNum() const {
-        return combatant_map_data_key_num_;
     }
 }

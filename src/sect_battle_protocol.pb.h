@@ -45,9 +45,12 @@ class MoveRequest;
 class MoveResponse;
 class ChangeSectRequest;
 class ChangeSectResponse;
+class ChangeOpponentRequest;
+class ChangeOpponentResponse;
 class CheckFightRequest;
 class CheckFightResponse;
-class ResetPositionRequest;
+class ReportFightRequest;
+class ReportFightResponse;
 
 // ===================================================================
 
@@ -207,19 +210,19 @@ class PBPos : public ::google::protobuf::Message {
 
   // accessors -------------------------------------------------------
 
-  // required uint32 x = 1;
+  // required int32 x = 1;
   inline bool has_x() const;
   inline void clear_x();
   static const int kXFieldNumber = 1;
-  inline ::google::protobuf::uint32 x() const;
-  inline void set_x(::google::protobuf::uint32 value);
+  inline ::google::protobuf::int32 x() const;
+  inline void set_x(::google::protobuf::int32 value);
 
-  // required uint32 y = 2;
+  // required int32 y = 2;
   inline bool has_y() const;
   inline void clear_y();
   static const int kYFieldNumber = 2;
-  inline ::google::protobuf::uint32 y() const;
-  inline void set_y(::google::protobuf::uint32 value);
+  inline ::google::protobuf::int32 y() const;
+  inline void set_y(::google::protobuf::int32 value);
 
   // @@protoc_insertion_point(class_scope:SectBattle.PBPos)
  private:
@@ -230,8 +233,8 @@ class PBPos : public ::google::protobuf::Message {
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
-  ::google::protobuf::uint32 x_;
-  ::google::protobuf::uint32 y_;
+  ::google::protobuf::int32 x_;
+  ::google::protobuf::int32 y_;
 
   mutable int _cached_size_;
   ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
@@ -520,17 +523,27 @@ class QueryBattleFieldRequest : public ::google::protobuf::Message {
   inline ::google::protobuf::uint32 uin() const;
   inline void set_uin(::google::protobuf::uint32 value);
 
+  // optional uint32 level = 2;
+  inline bool has_level() const;
+  inline void clear_level();
+  static const int kLevelFieldNumber = 2;
+  inline ::google::protobuf::uint32 level() const;
+  inline void set_level(::google::protobuf::uint32 value);
+
   // @@protoc_insertion_point(class_scope:SectBattle.QueryBattleFieldRequest)
  private:
   inline void set_has_uin();
   inline void clear_has_uin();
+  inline void set_has_level();
+  inline void clear_has_level();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
   ::google::protobuf::uint32 uin_;
+  ::google::protobuf::uint32 level_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
 
   friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
   friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
@@ -1276,6 +1289,225 @@ class ChangeSectResponse : public ::google::protobuf::Message {
 };
 // -------------------------------------------------------------------
 
+class ChangeOpponentRequest : public ::google::protobuf::Message {
+ public:
+  ChangeOpponentRequest();
+  virtual ~ChangeOpponentRequest();
+
+  ChangeOpponentRequest(const ChangeOpponentRequest& from);
+
+  inline ChangeOpponentRequest& operator=(const ChangeOpponentRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChangeOpponentRequest& default_instance();
+
+  void Swap(ChangeOpponentRequest* other);
+
+  // implements Message ----------------------------------------------
+
+  ChangeOpponentRequest* New() const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const ChangeOpponentRequest& from);
+  void MergeFrom(const ChangeOpponentRequest& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional uint32 uin = 1;
+  inline bool has_uin() const;
+  inline void clear_uin();
+  static const int kUinFieldNumber = 1;
+  inline ::google::protobuf::uint32 uin() const;
+  inline void set_uin(::google::protobuf::uint32 value);
+
+  // optional uint32 level = 2;
+  inline bool has_level() const;
+  inline void clear_level();
+  static const int kLevelFieldNumber = 2;
+  inline ::google::protobuf::uint32 level() const;
+  inline void set_level(::google::protobuf::uint32 value);
+
+  // optional uint32 direction = 3;
+  inline bool has_direction() const;
+  inline void clear_direction();
+  static const int kDirectionFieldNumber = 3;
+  inline ::google::protobuf::uint32 direction() const;
+  inline void set_direction(::google::protobuf::uint32 value);
+
+  // @@protoc_insertion_point(class_scope:SectBattle.ChangeOpponentRequest)
+ private:
+  inline void set_has_uin();
+  inline void clear_has_uin();
+  inline void set_has_level();
+  inline void clear_has_level();
+  inline void set_has_direction();
+  inline void clear_has_direction();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 uin_;
+  ::google::protobuf::uint32 level_;
+  ::google::protobuf::uint32 direction_;
+
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+
+  friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_ShutdownFile_sect_5fbattle_5fprotocol_2eproto();
+
+  void InitAsDefaultInstance();
+  static ChangeOpponentRequest* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class ChangeOpponentResponse : public ::google::protobuf::Message {
+ public:
+  ChangeOpponentResponse();
+  virtual ~ChangeOpponentResponse();
+
+  ChangeOpponentResponse(const ChangeOpponentResponse& from);
+
+  inline ChangeOpponentResponse& operator=(const ChangeOpponentResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChangeOpponentResponse& default_instance();
+
+  void Swap(ChangeOpponentResponse* other);
+
+  // implements Message ----------------------------------------------
+
+  ChangeOpponentResponse* New() const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const ChangeOpponentResponse& from);
+  void MergeFrom(const ChangeOpponentResponse& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional uint32 uin = 1;
+  inline bool has_uin() const;
+  inline void clear_uin();
+  static const int kUinFieldNumber = 1;
+  inline ::google::protobuf::uint32 uin() const;
+  inline void set_uin(::google::protobuf::uint32 value);
+
+  // optional sint32 code = 2;
+  inline bool has_code() const;
+  inline void clear_code();
+  static const int kCodeFieldNumber = 2;
+  inline ::google::protobuf::int32 code() const;
+  inline void set_code(::google::protobuf::int32 value);
+
+  // repeated uint32 opponents = 3;
+  inline int opponents_size() const;
+  inline void clear_opponents();
+  static const int kOpponentsFieldNumber = 3;
+  inline ::google::protobuf::uint32 opponents(int index) const;
+  inline void set_opponents(int index, ::google::protobuf::uint32 value);
+  inline void add_opponents(::google::protobuf::uint32 value);
+  inline const ::google::protobuf::RepeatedField< ::google::protobuf::uint32 >&
+      opponents() const;
+  inline ::google::protobuf::RepeatedField< ::google::protobuf::uint32 >*
+      mutable_opponents();
+
+  // optional .SectBattle.BattleField battle_field = 4;
+  inline bool has_battle_field() const;
+  inline void clear_battle_field();
+  static const int kBattleFieldFieldNumber = 4;
+  inline const ::SectBattle::BattleField& battle_field() const;
+  inline ::SectBattle::BattleField* mutable_battle_field();
+  inline ::SectBattle::BattleField* release_battle_field();
+  inline void set_allocated_battle_field(::SectBattle::BattleField* battle_field);
+
+  // @@protoc_insertion_point(class_scope:SectBattle.ChangeOpponentResponse)
+ private:
+  inline void set_has_uin();
+  inline void clear_has_uin();
+  inline void set_has_code();
+  inline void clear_has_code();
+  inline void set_has_battle_field();
+  inline void clear_has_battle_field();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 uin_;
+  ::google::protobuf::int32 code_;
+  ::google::protobuf::RepeatedField< ::google::protobuf::uint32 > opponents_;
+  ::SectBattle::BattleField* battle_field_;
+
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+
+  friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_ShutdownFile_sect_5fbattle_5fprotocol_2eproto();
+
+  void InitAsDefaultInstance();
+  static ChangeOpponentResponse* default_instance_;
+};
+// -------------------------------------------------------------------
+
 class CheckFightRequest : public ::google::protobuf::Message {
  public:
   CheckFightRequest();
@@ -1482,14 +1714,14 @@ class CheckFightResponse : public ::google::protobuf::Message {
 };
 // -------------------------------------------------------------------
 
-class ResetPositionRequest : public ::google::protobuf::Message {
+class ReportFightRequest : public ::google::protobuf::Message {
  public:
-  ResetPositionRequest();
-  virtual ~ResetPositionRequest();
+  ReportFightRequest();
+  virtual ~ReportFightRequest();
 
-  ResetPositionRequest(const ResetPositionRequest& from);
+  ReportFightRequest(const ReportFightRequest& from);
 
-  inline ResetPositionRequest& operator=(const ResetPositionRequest& from) {
+  inline ReportFightRequest& operator=(const ReportFightRequest& from) {
     CopyFrom(from);
     return *this;
   }
@@ -1503,17 +1735,17 @@ class ResetPositionRequest : public ::google::protobuf::Message {
   }
 
   static const ::google::protobuf::Descriptor* descriptor();
-  static const ResetPositionRequest& default_instance();
+  static const ReportFightRequest& default_instance();
 
-  void Swap(ResetPositionRequest* other);
+  void Swap(ReportFightRequest* other);
 
   // implements Message ----------------------------------------------
 
-  ResetPositionRequest* New() const;
+  ReportFightRequest* New() const;
   void CopyFrom(const ::google::protobuf::Message& from);
   void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const ResetPositionRequest& from);
-  void MergeFrom(const ResetPositionRequest& from);
+  void CopyFrom(const ReportFightRequest& from);
+  void MergeFrom(const ReportFightRequest& from);
   void Clear();
   bool IsInitialized() const;
 
@@ -1543,24 +1775,188 @@ class ResetPositionRequest : public ::google::protobuf::Message {
   inline ::google::protobuf::uint32 uin() const;
   inline void set_uin(::google::protobuf::uint32 value);
 
-  // @@protoc_insertion_point(class_scope:SectBattle.ResetPositionRequest)
+  // optional uint32 opponent = 2;
+  inline bool has_opponent() const;
+  inline void clear_opponent();
+  static const int kOpponentFieldNumber = 2;
+  inline ::google::protobuf::uint32 opponent() const;
+  inline void set_opponent(::google::protobuf::uint32 value);
+
+  // optional uint32 direction = 3;
+  inline bool has_direction() const;
+  inline void clear_direction();
+  static const int kDirectionFieldNumber = 3;
+  inline ::google::protobuf::uint32 direction() const;
+  inline void set_direction(::google::protobuf::uint32 value);
+
+  // optional bool reset_self = 4;
+  inline bool has_reset_self() const;
+  inline void clear_reset_self();
+  static const int kResetSelfFieldNumber = 4;
+  inline bool reset_self() const;
+  inline void set_reset_self(bool value);
+
+  // optional bool reset_opponent = 5;
+  inline bool has_reset_opponent() const;
+  inline void clear_reset_opponent();
+  static const int kResetOpponentFieldNumber = 5;
+  inline bool reset_opponent() const;
+  inline void set_reset_opponent(bool value);
+
+  // optional uint32 level = 6;
+  inline bool has_level() const;
+  inline void clear_level();
+  static const int kLevelFieldNumber = 6;
+  inline ::google::protobuf::uint32 level() const;
+  inline void set_level(::google::protobuf::uint32 value);
+
+  // optional uint32 opponent_level = 7;
+  inline bool has_opponent_level() const;
+  inline void clear_opponent_level();
+  static const int kOpponentLevelFieldNumber = 7;
+  inline ::google::protobuf::uint32 opponent_level() const;
+  inline void set_opponent_level(::google::protobuf::uint32 value);
+
+  // @@protoc_insertion_point(class_scope:SectBattle.ReportFightRequest)
  private:
   inline void set_has_uin();
   inline void clear_has_uin();
+  inline void set_has_opponent();
+  inline void clear_has_opponent();
+  inline void set_has_direction();
+  inline void clear_has_direction();
+  inline void set_has_reset_self();
+  inline void clear_has_reset_self();
+  inline void set_has_reset_opponent();
+  inline void clear_has_reset_opponent();
+  inline void set_has_level();
+  inline void clear_has_level();
+  inline void set_has_opponent_level();
+  inline void clear_has_opponent_level();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
   ::google::protobuf::uint32 uin_;
+  ::google::protobuf::uint32 opponent_;
+  ::google::protobuf::uint32 direction_;
+  bool reset_self_;
+  bool reset_opponent_;
+  ::google::protobuf::uint32 level_;
+  ::google::protobuf::uint32 opponent_level_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(7 + 31) / 32];
 
   friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
   friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
   friend void protobuf_ShutdownFile_sect_5fbattle_5fprotocol_2eproto();
 
   void InitAsDefaultInstance();
-  static ResetPositionRequest* default_instance_;
+  static ReportFightRequest* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class ReportFightResponse : public ::google::protobuf::Message {
+ public:
+  ReportFightResponse();
+  virtual ~ReportFightResponse();
+
+  ReportFightResponse(const ReportFightResponse& from);
+
+  inline ReportFightResponse& operator=(const ReportFightResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ReportFightResponse& default_instance();
+
+  void Swap(ReportFightResponse* other);
+
+  // implements Message ----------------------------------------------
+
+  ReportFightResponse* New() const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const ReportFightResponse& from);
+  void MergeFrom(const ReportFightResponse& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional uint32 uin = 1;
+  inline bool has_uin() const;
+  inline void clear_uin();
+  static const int kUinFieldNumber = 1;
+  inline ::google::protobuf::uint32 uin() const;
+  inline void set_uin(::google::protobuf::uint32 value);
+
+  // optional uint32 code = 2;
+  inline bool has_code() const;
+  inline void clear_code();
+  static const int kCodeFieldNumber = 2;
+  inline ::google::protobuf::uint32 code() const;
+  inline void set_code(::google::protobuf::uint32 value);
+
+  // optional .SectBattle.BattleField battle_field = 3;
+  inline bool has_battle_field() const;
+  inline void clear_battle_field();
+  static const int kBattleFieldFieldNumber = 3;
+  inline const ::SectBattle::BattleField& battle_field() const;
+  inline ::SectBattle::BattleField* mutable_battle_field();
+  inline ::SectBattle::BattleField* release_battle_field();
+  inline void set_allocated_battle_field(::SectBattle::BattleField* battle_field);
+
+  // @@protoc_insertion_point(class_scope:SectBattle.ReportFightResponse)
+ private:
+  inline void set_has_uin();
+  inline void clear_has_uin();
+  inline void set_has_code();
+  inline void clear_has_code();
+  inline void set_has_battle_field();
+  inline void clear_has_battle_field();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 uin_;
+  ::google::protobuf::uint32 code_;
+  ::SectBattle::BattleField* battle_field_;
+
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+
+  friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
+  friend void protobuf_ShutdownFile_sect_5fbattle_5fprotocol_2eproto();
+
+  void InitAsDefaultInstance();
+  static ReportFightResponse* default_instance_;
 };
 // ===================================================================
 
@@ -1713,7 +2109,7 @@ inline void ProtocolMessage::set_allocated_payload(::std::string* payload) {
 
 // PBPos
 
-// required uint32 x = 1;
+// required int32 x = 1;
 inline bool PBPos::has_x() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
@@ -1724,18 +2120,18 @@ inline void PBPos::clear_has_x() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void PBPos::clear_x() {
-  x_ = 0u;
+  x_ = 0;
   clear_has_x();
 }
-inline ::google::protobuf::uint32 PBPos::x() const {
+inline ::google::protobuf::int32 PBPos::x() const {
   return x_;
 }
-inline void PBPos::set_x(::google::protobuf::uint32 value) {
+inline void PBPos::set_x(::google::protobuf::int32 value) {
   set_has_x();
   x_ = value;
 }
 
-// required uint32 y = 2;
+// required int32 y = 2;
 inline bool PBPos::has_y() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
@@ -1746,13 +2142,13 @@ inline void PBPos::clear_has_y() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void PBPos::clear_y() {
-  y_ = 0u;
+  y_ = 0;
   clear_has_y();
 }
-inline ::google::protobuf::uint32 PBPos::y() const {
+inline ::google::protobuf::int32 PBPos::y() const {
   return y_;
 }
-inline void PBPos::set_y(::google::protobuf::uint32 value) {
+inline void PBPos::set_y(::google::protobuf::int32 value) {
   set_has_y();
   y_ = value;
 }
@@ -1959,6 +2355,28 @@ inline ::google::protobuf::uint32 QueryBattleFieldRequest::uin() const {
 inline void QueryBattleFieldRequest::set_uin(::google::protobuf::uint32 value) {
   set_has_uin();
   uin_ = value;
+}
+
+// optional uint32 level = 2;
+inline bool QueryBattleFieldRequest::has_level() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void QueryBattleFieldRequest::set_has_level() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void QueryBattleFieldRequest::clear_has_level() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void QueryBattleFieldRequest::clear_level() {
+  level_ = 0u;
+  clear_has_level();
+}
+inline ::google::protobuf::uint32 QueryBattleFieldRequest::level() const {
+  return level_;
+}
+inline void QueryBattleFieldRequest::set_level(::google::protobuf::uint32 value) {
+  set_has_level();
+  level_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -2542,6 +2960,187 @@ inline void ChangeSectResponse::set_allocated_battle_field(::SectBattle::BattleF
 
 // -------------------------------------------------------------------
 
+// ChangeOpponentRequest
+
+// optional uint32 uin = 1;
+inline bool ChangeOpponentRequest::has_uin() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void ChangeOpponentRequest::set_has_uin() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void ChangeOpponentRequest::clear_has_uin() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void ChangeOpponentRequest::clear_uin() {
+  uin_ = 0u;
+  clear_has_uin();
+}
+inline ::google::protobuf::uint32 ChangeOpponentRequest::uin() const {
+  return uin_;
+}
+inline void ChangeOpponentRequest::set_uin(::google::protobuf::uint32 value) {
+  set_has_uin();
+  uin_ = value;
+}
+
+// optional uint32 level = 2;
+inline bool ChangeOpponentRequest::has_level() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void ChangeOpponentRequest::set_has_level() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void ChangeOpponentRequest::clear_has_level() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void ChangeOpponentRequest::clear_level() {
+  level_ = 0u;
+  clear_has_level();
+}
+inline ::google::protobuf::uint32 ChangeOpponentRequest::level() const {
+  return level_;
+}
+inline void ChangeOpponentRequest::set_level(::google::protobuf::uint32 value) {
+  set_has_level();
+  level_ = value;
+}
+
+// optional uint32 direction = 3;
+inline bool ChangeOpponentRequest::has_direction() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void ChangeOpponentRequest::set_has_direction() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void ChangeOpponentRequest::clear_has_direction() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void ChangeOpponentRequest::clear_direction() {
+  direction_ = 0u;
+  clear_has_direction();
+}
+inline ::google::protobuf::uint32 ChangeOpponentRequest::direction() const {
+  return direction_;
+}
+inline void ChangeOpponentRequest::set_direction(::google::protobuf::uint32 value) {
+  set_has_direction();
+  direction_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ChangeOpponentResponse
+
+// optional uint32 uin = 1;
+inline bool ChangeOpponentResponse::has_uin() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void ChangeOpponentResponse::set_has_uin() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void ChangeOpponentResponse::clear_has_uin() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void ChangeOpponentResponse::clear_uin() {
+  uin_ = 0u;
+  clear_has_uin();
+}
+inline ::google::protobuf::uint32 ChangeOpponentResponse::uin() const {
+  return uin_;
+}
+inline void ChangeOpponentResponse::set_uin(::google::protobuf::uint32 value) {
+  set_has_uin();
+  uin_ = value;
+}
+
+// optional sint32 code = 2;
+inline bool ChangeOpponentResponse::has_code() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void ChangeOpponentResponse::set_has_code() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void ChangeOpponentResponse::clear_has_code() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void ChangeOpponentResponse::clear_code() {
+  code_ = 0;
+  clear_has_code();
+}
+inline ::google::protobuf::int32 ChangeOpponentResponse::code() const {
+  return code_;
+}
+inline void ChangeOpponentResponse::set_code(::google::protobuf::int32 value) {
+  set_has_code();
+  code_ = value;
+}
+
+// repeated uint32 opponents = 3;
+inline int ChangeOpponentResponse::opponents_size() const {
+  return opponents_.size();
+}
+inline void ChangeOpponentResponse::clear_opponents() {
+  opponents_.Clear();
+}
+inline ::google::protobuf::uint32 ChangeOpponentResponse::opponents(int index) const {
+  return opponents_.Get(index);
+}
+inline void ChangeOpponentResponse::set_opponents(int index, ::google::protobuf::uint32 value) {
+  opponents_.Set(index, value);
+}
+inline void ChangeOpponentResponse::add_opponents(::google::protobuf::uint32 value) {
+  opponents_.Add(value);
+}
+inline const ::google::protobuf::RepeatedField< ::google::protobuf::uint32 >&
+ChangeOpponentResponse::opponents() const {
+  return opponents_;
+}
+inline ::google::protobuf::RepeatedField< ::google::protobuf::uint32 >*
+ChangeOpponentResponse::mutable_opponents() {
+  return &opponents_;
+}
+
+// optional .SectBattle.BattleField battle_field = 4;
+inline bool ChangeOpponentResponse::has_battle_field() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void ChangeOpponentResponse::set_has_battle_field() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void ChangeOpponentResponse::clear_has_battle_field() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void ChangeOpponentResponse::clear_battle_field() {
+  if (battle_field_ != NULL) battle_field_->::SectBattle::BattleField::Clear();
+  clear_has_battle_field();
+}
+inline const ::SectBattle::BattleField& ChangeOpponentResponse::battle_field() const {
+  return battle_field_ != NULL ? *battle_field_ : *default_instance_->battle_field_;
+}
+inline ::SectBattle::BattleField* ChangeOpponentResponse::mutable_battle_field() {
+  set_has_battle_field();
+  if (battle_field_ == NULL) battle_field_ = new ::SectBattle::BattleField;
+  return battle_field_;
+}
+inline ::SectBattle::BattleField* ChangeOpponentResponse::release_battle_field() {
+  clear_has_battle_field();
+  ::SectBattle::BattleField* temp = battle_field_;
+  battle_field_ = NULL;
+  return temp;
+}
+inline void ChangeOpponentResponse::set_allocated_battle_field(::SectBattle::BattleField* battle_field) {
+  delete battle_field_;
+  battle_field_ = battle_field;
+  if (battle_field) {
+    set_has_battle_field();
+  } else {
+    clear_has_battle_field();
+  }
+}
+
+// -------------------------------------------------------------------
+
 // CheckFightRequest
 
 // optional uint32 uin = 1;
@@ -2698,28 +3297,246 @@ inline void CheckFightResponse::set_allocated_battle_field(::SectBattle::BattleF
 
 // -------------------------------------------------------------------
 
-// ResetPositionRequest
+// ReportFightRequest
 
 // optional uint32 uin = 1;
-inline bool ResetPositionRequest::has_uin() const {
+inline bool ReportFightRequest::has_uin() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void ResetPositionRequest::set_has_uin() {
+inline void ReportFightRequest::set_has_uin() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void ResetPositionRequest::clear_has_uin() {
+inline void ReportFightRequest::clear_has_uin() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void ResetPositionRequest::clear_uin() {
+inline void ReportFightRequest::clear_uin() {
   uin_ = 0u;
   clear_has_uin();
 }
-inline ::google::protobuf::uint32 ResetPositionRequest::uin() const {
+inline ::google::protobuf::uint32 ReportFightRequest::uin() const {
   return uin_;
 }
-inline void ResetPositionRequest::set_uin(::google::protobuf::uint32 value) {
+inline void ReportFightRequest::set_uin(::google::protobuf::uint32 value) {
   set_has_uin();
   uin_ = value;
+}
+
+// optional uint32 opponent = 2;
+inline bool ReportFightRequest::has_opponent() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void ReportFightRequest::set_has_opponent() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void ReportFightRequest::clear_has_opponent() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void ReportFightRequest::clear_opponent() {
+  opponent_ = 0u;
+  clear_has_opponent();
+}
+inline ::google::protobuf::uint32 ReportFightRequest::opponent() const {
+  return opponent_;
+}
+inline void ReportFightRequest::set_opponent(::google::protobuf::uint32 value) {
+  set_has_opponent();
+  opponent_ = value;
+}
+
+// optional uint32 direction = 3;
+inline bool ReportFightRequest::has_direction() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void ReportFightRequest::set_has_direction() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void ReportFightRequest::clear_has_direction() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void ReportFightRequest::clear_direction() {
+  direction_ = 0u;
+  clear_has_direction();
+}
+inline ::google::protobuf::uint32 ReportFightRequest::direction() const {
+  return direction_;
+}
+inline void ReportFightRequest::set_direction(::google::protobuf::uint32 value) {
+  set_has_direction();
+  direction_ = value;
+}
+
+// optional bool reset_self = 4;
+inline bool ReportFightRequest::has_reset_self() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void ReportFightRequest::set_has_reset_self() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void ReportFightRequest::clear_has_reset_self() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void ReportFightRequest::clear_reset_self() {
+  reset_self_ = false;
+  clear_has_reset_self();
+}
+inline bool ReportFightRequest::reset_self() const {
+  return reset_self_;
+}
+inline void ReportFightRequest::set_reset_self(bool value) {
+  set_has_reset_self();
+  reset_self_ = value;
+}
+
+// optional bool reset_opponent = 5;
+inline bool ReportFightRequest::has_reset_opponent() const {
+  return (_has_bits_[0] & 0x00000010u) != 0;
+}
+inline void ReportFightRequest::set_has_reset_opponent() {
+  _has_bits_[0] |= 0x00000010u;
+}
+inline void ReportFightRequest::clear_has_reset_opponent() {
+  _has_bits_[0] &= ~0x00000010u;
+}
+inline void ReportFightRequest::clear_reset_opponent() {
+  reset_opponent_ = false;
+  clear_has_reset_opponent();
+}
+inline bool ReportFightRequest::reset_opponent() const {
+  return reset_opponent_;
+}
+inline void ReportFightRequest::set_reset_opponent(bool value) {
+  set_has_reset_opponent();
+  reset_opponent_ = value;
+}
+
+// optional uint32 level = 6;
+inline bool ReportFightRequest::has_level() const {
+  return (_has_bits_[0] & 0x00000020u) != 0;
+}
+inline void ReportFightRequest::set_has_level() {
+  _has_bits_[0] |= 0x00000020u;
+}
+inline void ReportFightRequest::clear_has_level() {
+  _has_bits_[0] &= ~0x00000020u;
+}
+inline void ReportFightRequest::clear_level() {
+  level_ = 0u;
+  clear_has_level();
+}
+inline ::google::protobuf::uint32 ReportFightRequest::level() const {
+  return level_;
+}
+inline void ReportFightRequest::set_level(::google::protobuf::uint32 value) {
+  set_has_level();
+  level_ = value;
+}
+
+// optional uint32 opponent_level = 7;
+inline bool ReportFightRequest::has_opponent_level() const {
+  return (_has_bits_[0] & 0x00000040u) != 0;
+}
+inline void ReportFightRequest::set_has_opponent_level() {
+  _has_bits_[0] |= 0x00000040u;
+}
+inline void ReportFightRequest::clear_has_opponent_level() {
+  _has_bits_[0] &= ~0x00000040u;
+}
+inline void ReportFightRequest::clear_opponent_level() {
+  opponent_level_ = 0u;
+  clear_has_opponent_level();
+}
+inline ::google::protobuf::uint32 ReportFightRequest::opponent_level() const {
+  return opponent_level_;
+}
+inline void ReportFightRequest::set_opponent_level(::google::protobuf::uint32 value) {
+  set_has_opponent_level();
+  opponent_level_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ReportFightResponse
+
+// optional uint32 uin = 1;
+inline bool ReportFightResponse::has_uin() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void ReportFightResponse::set_has_uin() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void ReportFightResponse::clear_has_uin() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void ReportFightResponse::clear_uin() {
+  uin_ = 0u;
+  clear_has_uin();
+}
+inline ::google::protobuf::uint32 ReportFightResponse::uin() const {
+  return uin_;
+}
+inline void ReportFightResponse::set_uin(::google::protobuf::uint32 value) {
+  set_has_uin();
+  uin_ = value;
+}
+
+// optional uint32 code = 2;
+inline bool ReportFightResponse::has_code() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void ReportFightResponse::set_has_code() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void ReportFightResponse::clear_has_code() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void ReportFightResponse::clear_code() {
+  code_ = 0u;
+  clear_has_code();
+}
+inline ::google::protobuf::uint32 ReportFightResponse::code() const {
+  return code_;
+}
+inline void ReportFightResponse::set_code(::google::protobuf::uint32 value) {
+  set_has_code();
+  code_ = value;
+}
+
+// optional .SectBattle.BattleField battle_field = 3;
+inline bool ReportFightResponse::has_battle_field() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void ReportFightResponse::set_has_battle_field() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void ReportFightResponse::clear_has_battle_field() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void ReportFightResponse::clear_battle_field() {
+  if (battle_field_ != NULL) battle_field_->::SectBattle::BattleField::Clear();
+  clear_has_battle_field();
+}
+inline const ::SectBattle::BattleField& ReportFightResponse::battle_field() const {
+  return battle_field_ != NULL ? *battle_field_ : *default_instance_->battle_field_;
+}
+inline ::SectBattle::BattleField* ReportFightResponse::mutable_battle_field() {
+  set_has_battle_field();
+  if (battle_field_ == NULL) battle_field_ = new ::SectBattle::BattleField;
+  return battle_field_;
+}
+inline ::SectBattle::BattleField* ReportFightResponse::release_battle_field() {
+  clear_has_battle_field();
+  ::SectBattle::BattleField* temp = battle_field_;
+  battle_field_ = NULL;
+  return temp;
+}
+inline void ReportFightResponse::set_allocated_battle_field(::SectBattle::BattleField* battle_field) {
+  delete battle_field_;
+  battle_field_ = battle_field;
+  if (battle_field) {
+    set_has_battle_field();
+  } else {
+    clear_has_battle_field();
+  }
 }
 
 

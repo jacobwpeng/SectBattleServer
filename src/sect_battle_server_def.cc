@@ -11,9 +11,15 @@
  */
 
 #include "sect_battle_server_def.h"
+#include <alpha/random.h>
 #include <algorithm>
 
 namespace SectBattle {
+    const char* kBackupMetaDataKey = "backup_metadata";
+    const char* kCombatantMapDataKey = "combatant_map";
+    const char* kOpponentMapDataKey = "opponent_map";
+    const char* kOwnerMapDataKey = "owner_map";
+
     bool IsValidSectType(int type) {
         return type > static_cast<int>(SectType::kNone)
             && type < static_cast<int>(SectType::kMax);
@@ -24,13 +30,25 @@ namespace SectBattle {
             && d <= static_cast<int>(Direction::kRight);
     }
 
-    Pos Pos::Create(uint16_t x, uint16_t y) {
-        assert (x <= kMaxPos);
-        assert (y <= kMaxPos);
+    bool operator < (const CombatantIdentity& lhs, const CombatantIdentity& rhs) {
+        uint64_t l = (static_cast<uint64_t>(lhs.first) << 32) + lhs.second;
+        uint64_t r = (static_cast<uint64_t>(rhs.first) << 32) + rhs.second;
 
+        return l < r;
+    }
+
+    Pos Pos::Create(int16_t x, int16_t y) {
         Pos pos;
         pos.x_ = x;
         pos.y_ = y;
+        assert(pos.Valid());
+        return pos;
+    }
+
+    Pos Pos::CreateInvalid() {
+        Pos pos;
+        pos.x_ = -1;
+        pos.y_ = -1;
         return pos;
     }
 
@@ -66,12 +84,18 @@ namespace SectBattle {
                 break;
         }
 
-        assert (x <= kMaxPos);
-        assert (y <= kMaxPos);
+        assert (Valid());
         return std::make_pair(Pos::Create(x, y), true);
     }
 
+    bool Pos::Valid() const {
+        return x_ >= 0 && x_ <= kMaxPos
+            && y_ >= 0 && y_ <= kMaxPos;
+    }
+
     bool operator< (const Pos& lhs, const Pos& rhs) {
+        assert (lhs.Valid());
+        assert (rhs.Valid());
         const uint16_t kYCoordinateWeight = 10;
         return lhs.X() + lhs.Y() * kYCoordinateWeight 
             < rhs.X() + rhs.Y() * kYCoordinateWeight;
@@ -90,22 +114,76 @@ namespace SectBattle {
     }
 
     GarrisonIterator Field::AddGarrison(UinType uin, LevelType level) {
-        return garrison_.insert(std::make_pair(level, uin)).first;
+        auto p = std::make_pair(level, uin);
+        auto res = garrison_.insert(p);
+        assert (res.second);
+        return res.first;
     }
 
     void Field::ChangeOwner(SectType new_owner) {
         owner_ = new_owner;
     }
 
-    void Field::ReduceGarrison(UinType uin, GarrisonIterator iter) {
-        assert (iter != garrison_.end());
-        assert (iter->second == uin);
-        garrison_.erase(iter);
+    void Field::ReduceGarrison(UinType uin, GarrisonIterator it) {
+        assert (it != garrison_.end());
+        assert (it->second == uin);
+        assert (garrison_.find(*it) != it);
+        (void)uin;
+        garrison_.erase(it);
+    }
+
+    void Field::UpdateGarrisonLevel(UinType uin, LevelType newlevel,
+            GarrisonIterator it) {
+        assert (it != garrison_.end());
+        assert (garrison_.find(*it) == it);
+        garrison_.erase(it);
+        auto res = garrison_.insert(std::make_pair(newlevel, uin));
+        assert (res.second);
+        (void)res;
     }
 
     OpponentList Field::GetOpponents(LevelType level) {
-        (void)level;
-        return OpponentList();
+        OpponentList opponents;
+        const auto kMaxOpponents = 5u;
+        auto last = garrison_.end();
+        if (last == garrison_.begin()) {
+            //没有驻军
+            return opponents;
+        }
+
+        //先找同一等级段的
+        if (FindOpponentsInLevel(level, kMaxOpponents, &opponents)) {
+            return opponents;
+        }
+
+        --last;
+        const auto min_searching_level = garrison_.begin()->first;
+        const auto max_searching_level = last->first;
+
+        //同一等级段不足，则在上下等级段查找
+        int current_searching_level_offset = 1;
+        while (opponents.size() < kMaxOpponents) {
+            auto current_search_level = static_cast<int>(level)
+                - current_searching_level_offset;
+
+            if (current_search_level >= min_searching_level) {
+                auto needs = kMaxOpponents - opponents.size();
+                if (FindOpponentsInLevel(current_search_level, needs, &opponents)) {
+                    break;
+                }
+            }
+
+            current_search_level = static_cast<int>(level) + current_searching_level_offset;
+            if (current_search_level <= max_searching_level) {
+                auto needs = kMaxOpponents - opponents.size();
+                if (FindOpponentsInLevel(current_search_level, needs, &opponents)) {
+                    break;
+                }
+            }
+
+            ++current_searching_level_offset;
+        }
+        return opponents;
     }
 
     SectType Field::Owner() const {
@@ -118,6 +196,28 @@ namespace SectBattle {
 
     uint32_t Field::GarrisonNum() const {
         return garrison_.size();
+    }
+
+    bool Field::FindOpponentsInLevel(LevelType level, unsigned needs,
+            OpponentList* opponents) {
+        assert (opponents);
+        auto it = garrison_.lower_bound(std::make_pair(level,
+                    std::numeric_limits<UinType>::min()));
+        auto last = garrison_.upper_bound(std::make_pair(level,
+                    std::numeric_limits<UinType>::max()));
+
+        //这个等级段没人
+        if (it == last) {
+            return false;
+        }
+        auto first = it;
+        auto iterators = alpha::Random::Sample(first, last, needs);
+        std::for_each(iterators.begin(), iterators.end(), 
+                [opponents](decltype(it) it) {
+            opponents->push_back(it->second);
+        });
+
+        return iterators.size() == needs;
     }
 
     Sect::Sect(SectType type, Pos born_pos)
@@ -171,6 +271,10 @@ namespace SectBattle {
         opponents_[d] = opponents;
     }
 
+    void Combatant::ClearOpponents(Direction d) {
+        opponents_.erase(d);
+    }
+
     const Sect* Combatant::CurrentSect() const {
         return sect_;
     }
@@ -190,5 +294,45 @@ namespace SectBattle {
         } else {
             return it->second;
         }
+    }
+
+    CombatantLite CombatantLite::Create(Pos p, LevelType l) {
+        CombatantLite lite;
+        lite.pos = p;
+        lite.level = l;
+        return lite;
+    }
+
+    OpponentLite OpponentLite::Default() {
+        OpponentLite lite;
+        ::memset(&lite, 0x0, sizeof(OpponentLite));
+        return lite;
+    }
+
+    void OpponentLite::ChangeOpponents(Direction direction, const OpponentList& opponents) {
+        auto d = static_cast<int>(direction);
+        assert (d >= 0 && d <= kMaxDirection);
+        assert (opponents.size() <= kMaxOpponentOneDirection);
+        size_t i = 0;
+        while (i < opponents.size()) {
+            this->opponents[d][i] = opponents[i];
+            ++i;
+        }
+
+        while (i < kMaxOpponentOneDirection) {
+            this->opponents[d][i] = 0;
+            ++i;
+        }
+    }
+
+    OpponentList OpponentLite::GetOpponents(Direction d) {
+        auto direction = static_cast<int>(d);
+        assert (direction >= 0 && direction <= kMaxDirection);
+        OpponentList res;
+        std::copy_if(std::begin(opponents[direction]), std::end(opponents[direction]),
+                std::back_inserter(res), [](UinType opponent_uin) {
+            return opponent_uin != 0;
+        });
+        return res;
     }
 }

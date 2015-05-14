@@ -17,8 +17,9 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <memory>
+#include <alpha/mmap_file.h>
 #include <alpha/skip_list.h>
-#include "sect_battle_backup_coroutine.h"
 
 namespace SectBattle {
     //错误码
@@ -31,6 +32,9 @@ namespace SectBattle {
         kInSameSect = -1004,
         kInvalidOpponent = -1005,
         kOpponentMoved = -1006,
+        kNoOpponent = -1007,
+        kNoOpponentFound = -1008,
+        kBattleFieldFull = -1009,
     };
     //战场格子类型
     enum class FieldType {
@@ -58,7 +62,6 @@ namespace SectBattle {
         kLeft = 3,
         kRight = 4
     };
-
     
     using UinType = uint32_t;
     using LevelType = uint16_t;
@@ -69,21 +72,25 @@ namespace SectBattle {
 
     bool IsValidSectType(int type);
     bool IsValidDirection(int d);
+    bool operator < (const CombatantIdentity& lhs, const CombatantIdentity& rhs);
     //战场位置
     class Pos {
         public:
             static const int kMaxPos = 9;
-            static Pos Create(uint16_t x, uint16_t y);
-            uint16_t X() const { return x_; }
-            uint16_t Y() const { return y_; }
+            static Pos Create(int16_t x, int16_t y);
+            static Pos CreateInvalid();
+            int16_t X() const { return x_; }
+            int16_t Y() const { return y_; }
+            bool Valid() const;
             std::pair<Pos, bool> Apply(Direction d) const;
 
         private:
             Pos() = default;
             friend class Sect;
             friend class Combatant;
-            uint16_t x_;
-            uint16_t y_;
+            friend struct CombatantLite;
+            int16_t x_;
+            int16_t y_;
     };
     bool operator< (const Pos& lhs, const Pos& rhs);
     bool operator== (const Pos& lhs, const Pos& rhs);
@@ -96,13 +103,17 @@ namespace SectBattle {
             Field(SectType owner, FieldType type);
             GarrisonSet::iterator AddGarrison(UinType uin, LevelType level);
             void ChangeOwner(SectType new_owner);
-            void ReduceGarrison(UinType uin, GarrisonIterator iter);
+            void ReduceGarrison(UinType uin, GarrisonIterator it);
+            void UpdateGarrisonLevel(UinType uin, LevelType newlevel, GarrisonIterator it);
             OpponentList GetOpponents(LevelType level);
             SectType Owner() const;
             FieldType Type() const;
             uint32_t GarrisonNum() const;
 
         private:
+            //从level这个等级最多取出needs个人
+            //如果取出的人数恰好为needs, 返回true, 否则为false
+            bool FindOpponentsInLevel(LevelType level, unsigned needs, OpponentList*);
             SectType owner_;
             FieldType type_;
             GarrisonSet garrison_;
@@ -131,6 +142,7 @@ namespace SectBattle {
             void SetIterator(GarrisonIterator iter);
             void ChangeSect(const Sect* new_sect);
             void ChangeOpponents(Direction d, const OpponentList& opponents);
+            void ClearOpponents(Direction d);
             const Sect* CurrentSect() const;
             Pos CurrentPos() const;
             GarrisonIterator Iterator() const;
@@ -144,17 +156,32 @@ namespace SectBattle {
             OpponentMap opponents_;
     };
 
-    class CombatantLite {
-        public:
-            static CombatantLite Create(Pos pos, LevelType level);
+    struct CombatantLite {
+        static CombatantLite Create(Pos p, LevelType l);
+        Pos pos;
+        LevelType level;
+    };
+
+    struct OpponentLite {
+        static const int kMaxDirection = 4;
+        static const int kMaxOpponentOneDirection = 5;
+        static OpponentLite Default();
+        void ChangeOpponents(Direction d, const OpponentList& opponents);
+        OpponentList GetOpponents(Direction d);
+        UinType opponents[kMaxDirection][kMaxOpponentOneDirection];
 
         private:
-            Pos pos_;
-            LevelType level_;
+            OpponentLite() = default;
     };
 
     using OwnerMap = alpha::SkipList<Pos, SectType>;
     using CombatantMap = alpha::SkipList<UinType, CombatantLite>;
+    using OpponentMap = alpha::SkipList<UinType, OpponentLite>;
+    using MMapedFileMap = std::map<std::string, std::unique_ptr<alpha::MMapFile>>;
+    extern const char* kBackupMetaDataKey;
+    extern const char* kCombatantMapDataKey;
+    extern const char* kOpponentMapDataKey;
+    extern const char* kOwnerMapDataKey;
 };
 
 #endif   /* ----- #ifndef __SECT_BATTLE_SERVER_DEF_H__  ----- */
