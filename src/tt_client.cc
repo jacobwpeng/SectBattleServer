@@ -207,10 +207,12 @@ namespace tokyotyrant {
     }
 
     void Client::OnConnectError(const alpha::NetAddress& addr) {
+        LOG_WARNING << "Connect to " << addr << " failed";
         assert (addr_ && *addr_ == addr);
         ResetConnection();
-        LOG_WARNING << "Connect to " << addr << " failed";
-        co_->Resume();
+        if (co_->IsSuspended()) {
+            co_->Resume();
+        }
     }
 
     void Client::OnConnected(alpha::TcpConnectionPtr conn) {
@@ -221,28 +223,36 @@ namespace tokyotyrant {
         conn_->SetOnWriteDone(std::bind(&Client::OnWriteDone, this, _1));
         state_ = ConnectionState::kConnected;
         expired_ = false; //干掉超时造成的重连标志
-        co_->Resume();
+        if (co_->IsSuspended()) {
+            co_->Resume();
+        }
     }
 
     void Client::OnDisconnected(alpha::TcpConnectionPtr conn) {
+        LOG_WARNING << "Connection to Remote server closed, addr = " << *addr_;
         assert (conn_ == conn);
         (void)conn;
         ResetConnection();
-        LOG_WARNING << "Connection to Remote server closed, addr = " << *addr_;
-        co_->Resume();
+        if (co_->IsSuspended()) {
+            co_->Resume();
+        }
     }
 
     void Client::OnMessage(alpha::TcpConnectionPtr conn, 
             alpha::TcpConnectionBuffer*) {
         assert (conn == conn_);
         (void)conn;
-        co_->Resume();
+        if (co_->IsSuspended()) {
+            co_->Resume();
+        }
     }
 
     void Client::OnWriteDone(alpha::TcpConnectionPtr conn) {
         assert (conn == conn_);
         (void)conn;
-        co_->Resume();
+        if (co_->IsSuspended()) {
+            co_->Resume();
+        }
     }
 
     void Client::OnTimeout() {
