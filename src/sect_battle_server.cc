@@ -29,7 +29,9 @@
 #include "sect_battle_backup_metadata.h"
 #include "sect_battle_backup_coroutine.h"
 #include "sect_battle_recover_coroutine.h"
+#include "sect_battle_server_conf.h"
 
+DEFINE_string(conf_path, "sect_battle_svrd.conf", "战场信息配置文件路径");
 DEFINE_string(data_path, "/tmp", "mmap文件存放路径");
 DEFINE_string(bind_ip, "0.0.0.0", "服务器监听的本地ip地址");
 DEFINE_int32(bind_port, 9123, "服务器监听的本地端口");
@@ -58,12 +60,17 @@ namespace detail {
 
 namespace SectBattle {
     static const char* kBackupPrefix[2] = {"tick", "tock"};
-    Server::Server(alpha::EventLoop* loop, alpha::Slice file)
-        :loop_(loop), conf_file_(file.ToString()) {
+    Server::Server(alpha::EventLoop* loop)
+        :loop_(loop) {
     }
     Server::~Server() = default;
 
     bool Server::Run() {
+        conf_ = ServerConf::ReadFromFile(FLAGS_conf_path);
+        if (conf_ == nullptr) {
+            return false;
+        }
+
         using namespace std::placeholders;
         tt_client_.reset(new tokyotyrant::Client(loop_));
         if (FLAGS_recovery_mode) {
@@ -88,12 +95,14 @@ namespace SectBattle {
                 std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
         loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
-        LOG_INFO << "BuildMMapedData";
+        loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
             return false;
         }
         LOG_INFO << "BuildMMapedData done";
+        BuildRunData();
+        LOG_INFO << "BuildRunData done";
 
         auto it = std::find(std::begin(kBackupPrefix),
                 std::end(kBackupPrefix), backup_metadata_->LatestBackupPrefix());
@@ -109,7 +118,6 @@ namespace SectBattle {
         //只对加入战场做了限制，所以记录对手的map的上限要大于等于战场人数上限
         assert (opponent_map_->max_size() >= combatant_map_->max_size());
         return server_->Start(addr, std::bind(&Server::HandleMessage, this, _1, _2));
-        //return false;
     }
     
     bool Server::RunRecovery() {
@@ -209,7 +217,7 @@ namespace SectBattle {
         return FLAGS_data_path + "/" + std::string(key) + ".mmap";
     }
 
-    bool Server::BuildRunData() {
+    void Server::BuildRunData() {
         //从通过mmap落地的三个SkipList中构造出跑在内存里的各种数据
         //本来只有一份数据是最好维护的，但是由于结构比较复杂，map里面嵌套各种东西
         //所以就维护了两份数据，不过运行时只会写SkipList，不会读
@@ -257,13 +265,53 @@ namespace SectBattle {
                 }
             }
         }
-        return true;
     }
 
     void Server::ReadBattleFieldFromConf() {
+        //读取战场的初始化状态
+        //先生成出生点
+        for (int sect = static_cast<int>(SectType::kNone) + 1;
+                sect != static_cast<int>(SectType::kMax);
+                ++sect ) {
+            auto sect_type = static_cast<SectType>(sect);
+            auto pos = conf_->GetBornPos(sect_type);
+            assert (pos.Valid());
+            auto res = battle_field_.emplace(std::piecewise_construct,
+                            std::forward_as_tuple(pos),
+                            std::forward_as_tuple(sect_type, FieldType::kBornField));
+            assert (res.second);
+            (void)res;
+        }
+        //然后剩下的都是普通点（资源点对服务器来说并没有用）
+        for (int x = 0; x <= Pos::kMaxPos; ++x) {
+            for (int y = 0; y <= Pos::kMaxPos; ++y) {
+                auto pos = Pos::Create(x, y);
+                assert (pos.Valid());
+                auto it = battle_field_.find(pos);
+                if (it != battle_field_.end()) {
+                    continue;
+                }
+                auto res = battle_field_.emplace(std::piecewise_construct,
+                        std::forward_as_tuple(pos),
+                        std::forward_as_tuple(SectType::kNone, FieldType::kDefault));
+                assert (res.second);
+                (void)res;
+            }
+        }
     }
 
     void Server::ReadSectFromConf() {
+        //根据战场中的出生点生成门派
+        for (int sect = static_cast<int>(SectType::kNone) + 1;
+                sect != static_cast<int>(SectType::kMax);
+                ++sect ) {
+            auto sect_type = static_cast<SectType>(sect);
+            auto pos = conf_->GetBornPos(sect_type);
+            assert (pos.Valid());
+            auto res = sects_.insert(std::make_pair(sect_type, Sect(sect_type, pos)));
+            assert (res.second);
+            (void)res;
+        }
     }
 
     ssize_t Server::HandleMessage(alpha::Slice packet, char* out) {
@@ -729,6 +777,32 @@ namespace SectBattle {
         auto it = sects_.find(sect_type);
         assert (it != sects_.end());
         return it->second;
+    }
+
+    void Server::CheckResetBattleField() {
+        auto now = alpha::NowInSeconds();
+        if (!conf_->InSameSeason(now, backup_metadata_->LatestBattleFieldResetTime())) {
+            LOG_INFO << "now = " << now << ", LatestBattleFieldResetTime = "
+                << backup_metadata_->LatestBattleFieldResetTime();;
+            ResetBattleField();
+            backup_metadata_->SetLatestBattleFieldResetTime(now);
+        }
+    }
+
+    void Server::ResetBattleField() {
+        //由于mmaped下来的skiplist依赖于alpha::MemoryList
+        //而MemoryList是双链表实现，所以clear的时候会重建这两个双链表
+        //这样要遍历整个文件，所以性能严重依赖于是否把mmaped文件放在tmpfs中
+        LOG_INFO << "ResetBattleField start";
+        battle_field_.clear();
+        sects_.clear();
+        combatants_.clear();
+        owner_map_->clear();
+        opponent_map_->clear();
+        combatant_map_->clear();
+        ReadBattleFieldFromConf();
+        ReadSectFromConf();
+        LOG_INFO << "ResetBattleField done";
     }
 
     void Server::BackupRoutine(bool force) {

@@ -64,9 +64,10 @@ namespace SectBattle {
     class BackupCoroutine;
     class RecoverCoroutine;
     class BackupMetadata;
+    class ServerConf;
     class Server {
         public:
-            Server(alpha::EventLoop* loop, alpha::Slice file);
+            Server(alpha::EventLoop* loop);
             ~Server();
 
             bool Run();
@@ -79,7 +80,7 @@ namespace SectBattle {
             std::unique_ptr<T> BuildMMapedMapFromFile(alpha::Slice key, size_t size);
             BackupMetadata* BuildBackupMetaDataFromFile(size_t size);
             std::string GetMMapedFilePath(const char* key) const;
-            bool BuildRunData();
+            void BuildRunData();
             void ReadBattleFieldFromConf();
             void ReadSectFromConf();
 
@@ -99,6 +100,8 @@ namespace SectBattle {
             Combatant& CheckGetCombatant(UinType uin);
             Field& CheckGetField(Pos pos);
             Sect& CheckGetSect(SectType sect_type);
+            void CheckResetBattleField();
+            void ResetBattleField();
 
             //落地各种操作（备份恢复用）
             void RecordCombatant(UinType uin, Pos current_pos, LevelType level);
@@ -109,10 +112,10 @@ namespace SectBattle {
             void BackupRoutine(bool force);
             void RecoverRoutine();
 
-            //static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
-            static const int kBackupInterval = 10 * 1000;
+            static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
+            //static const int kBackupInterval = 10 * 1000;
             alpha::EventLoop* loop_;
-            std::string conf_file_;
+            std::unique_ptr<ServerConf> conf_;
             std::uniform_int_distribution<int> dist_;
             std::unique_ptr<alpha::UdpServer> server_;
             std::unique_ptr<MessageDispatcher> dispatcher_;

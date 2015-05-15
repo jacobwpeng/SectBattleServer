@@ -91,4 +91,12 @@ namespace SectBattle {
     alpha::TimeStamp BackupMetadata::EndTime() const {
         return backup_end_time_;
     }
+    
+    void BackupMetadata::SetLatestBattleFieldResetTime(alpha::TimeStamp time) {
+        latest_battle_field_reset_time_ = time;
+    }
+
+    alpha::TimeStamp BackupMetadata::LatestBattleFieldResetTime() const {
+        return latest_battle_field_reset_time_;
+    }
 }
