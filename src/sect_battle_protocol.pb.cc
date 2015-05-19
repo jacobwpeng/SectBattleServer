@@ -218,10 +218,11 @@ void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(JoinBattleResponse));
   MoveRequest_descriptor_ = file->message_type(8);
-  static const int MoveRequest_offsets_[3] = {
+  static const int MoveRequest_offsets_[4] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MoveRequest, uin_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MoveRequest, level_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MoveRequest, direction_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MoveRequest, can_move_),
   };
   MoveRequest_reflection_ =
     new ::google::protobuf::internal::GeneratedMessageReflection(
@@ -356,9 +357,10 @@ void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(CheckFightResponse));
   ReportFightRequest_descriptor_ = file->message_type(16);
-  static const int ReportFightRequest_offsets_[7] = {
+  static const int ReportFightRequest_offsets_[8] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, uin_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, opponent_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, loser_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, direction_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, reset_self_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ReportFightRequest, reset_opponent_),
@@ -506,31 +508,32 @@ void protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto() {
     "/\n\021JoinBattleRequest\022\013\n\003uin\030\001 \001(\r\022\r\n\005lev"
     "el\030\002 \001(\r\"l\n\022JoinBattleResponse\022\013\n\003uin\030\001 "
     "\001(\r\022\014\n\004code\030\002 \001(\021\022\014\n\004sect\030\003 \001(\r\022-\n\014battl"
-    "e_field\030\004 \001(\0132\027.SectBattle.BattleField\"<"
+    "e_field\030\004 \001(\0132\027.SectBattle.BattleField\"N"
     "\n\013MoveRequest\022\013\n\003uin\030\001 \001(\r\022\r\n\005level\030\002 \001("
-    "\r\022\021\n\tdirection\030\003 \001(\r\"k\n\014MoveResponse\022\013\n\003"
-    "uin\030\001 \001(\r\022\014\n\004code\030\002 \001(\021\022\021\n\topponents\030\003 \003"
-    "(\r\022-\n\014battle_field\030\004 \001(\0132\027.SectBattle.Ba"
-    "ttleField\"=\n\021ChangeSectRequest\022\013\n\003uin\030\001 "
-    "\001(\r\022\r\n\005level\030\002 \001(\r\022\014\n\004sect\030\003 \001(\r\"^\n\022Chan"
-    "geSectResponse\022\013\n\003uin\030\001 \001(\r\022\014\n\004code\030\002 \001("
-    "\021\022-\n\014battle_field\030\003 \001(\0132\027.SectBattle.Bat"
-    "tleField\"F\n\025ChangeOpponentRequest\022\013\n\003uin"
-    "\030\001 \001(\r\022\r\n\005level\030\002 \001(\r\022\021\n\tdirection\030\003 \001(\r"
-    "\"u\n\026ChangeOpponentResponse\022\013\n\003uin\030\001 \001(\r\022"
-    "\014\n\004code\030\002 \001(\021\022\021\n\topponents\030\003 \003(\r\022-\n\014batt"
-    "le_field\030\004 \001(\0132\027.SectBattle.BattleField\""
-    "E\n\021CheckFightRequest\022\013\n\003uin\030\001 \001(\r\022\020\n\010opp"
-    "onent\030\002 \001(\r\022\021\n\tdirection\030\003 \001(\r\"^\n\022CheckF"
-    "ightResponse\022\013\n\003uin\030\001 \001(\r\022\014\n\004code\030\002 \001(\021\022"
-    "-\n\014battle_field\030\003 \001(\0132\027.SectBattle.Battl"
-    "eField\"\231\001\n\022ReportFightRequest\022\013\n\003uin\030\001 \001"
-    "(\r\022\020\n\010opponent\030\002 \001(\r\022\021\n\tdirection\030\003 \001(\r\022"
-    "\022\n\nreset_self\030\004 \001(\010\022\026\n\016reset_opponent\030\005 "
-    "\001(\010\022\r\n\005level\030\006 \001(\r\022\026\n\016opponent_level\030\007 \001"
-    "(\r\"_\n\023ReportFightResponse\022\013\n\003uin\030\001 \001(\r\022\014"
-    "\n\004code\030\002 \001(\r\022-\n\014battle_field\030\003 \001(\0132\027.Sec"
-    "tBattle.BattleField", 1579);
+    "\r\022\021\n\tdirection\030\003 \001(\r\022\020\n\010can_move\030\004 \001(\010\"k"
+    "\n\014MoveResponse\022\013\n\003uin\030\001 \001(\r\022\014\n\004code\030\002 \001("
+    "\021\022\021\n\topponents\030\003 \003(\r\022-\n\014battle_field\030\004 \001"
+    "(\0132\027.SectBattle.BattleField\"=\n\021ChangeSec"
+    "tRequest\022\013\n\003uin\030\001 \001(\r\022\r\n\005level\030\002 \001(\r\022\014\n\004"
+    "sect\030\003 \001(\r\"^\n\022ChangeSectResponse\022\013\n\003uin\030"
+    "\001 \001(\r\022\014\n\004code\030\002 \001(\021\022-\n\014battle_field\030\003 \001("
+    "\0132\027.SectBattle.BattleField\"F\n\025ChangeOppo"
+    "nentRequest\022\013\n\003uin\030\001 \001(\r\022\r\n\005level\030\002 \001(\r\022"
+    "\021\n\tdirection\030\003 \001(\r\"u\n\026ChangeOpponentResp"
+    "onse\022\013\n\003uin\030\001 \001(\r\022\014\n\004code\030\002 \001(\021\022\021\n\toppon"
+    "ents\030\003 \003(\r\022-\n\014battle_field\030\004 \001(\0132\027.SectB"
+    "attle.BattleField\"E\n\021CheckFightRequest\022\013"
+    "\n\003uin\030\001 \001(\r\022\020\n\010opponent\030\002 \001(\r\022\021\n\tdirecti"
+    "on\030\003 \001(\r\"^\n\022CheckFightResponse\022\013\n\003uin\030\001 "
+    "\001(\r\022\014\n\004code\030\002 \001(\021\022-\n\014battle_field\030\003 \001(\0132"
+    "\027.SectBattle.BattleField\"\250\001\n\022ReportFight"
+    "Request\022\013\n\003uin\030\001 \001(\r\022\020\n\010opponent\030\002 \001(\r\022\r"
+    "\n\005loser\030\003 \001(\r\022\021\n\tdirection\030\004 \001(\r\022\022\n\nrese"
+    "t_self\030\005 \001(\010\022\026\n\016reset_opponent\030\006 \001(\010\022\r\n\005"
+    "level\030\007 \001(\r\022\026\n\016opponent_level\030\010 \001(\r\"_\n\023R"
+    "eportFightResponse\022\013\n\003uin\030\001 \001(\r\022\014\n\004code\030"
+    "\002 \001(\r\022-\n\014battle_field\030\003 \001(\0132\027.SectBattle"
+    ".BattleField", 1612);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "sect_battle_protocol.proto", &protobuf_RegisterTypes);
   ProtocolMessage::default_instance_ = new ProtocolMessage();
@@ -2829,6 +2832,7 @@ void JoinBattleResponse::Swap(JoinBattleResponse* other) {
 const int MoveRequest::kUinFieldNumber;
 const int MoveRequest::kLevelFieldNumber;
 const int MoveRequest::kDirectionFieldNumber;
+const int MoveRequest::kCanMoveFieldNumber;
 #endif  // !_MSC_VER
 
 MoveRequest::MoveRequest()
@@ -2850,6 +2854,7 @@ void MoveRequest::SharedCtor() {
   uin_ = 0u;
   level_ = 0u;
   direction_ = 0u;
+  can_move_ = false;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2888,6 +2893,7 @@ void MoveRequest::Clear() {
     uin_ = 0u;
     level_ = 0u;
     direction_ = 0u;
+    can_move_ = false;
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
   mutable_unknown_fields()->Clear();
@@ -2942,6 +2948,22 @@ bool MoveRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
+        if (input->ExpectTag(32)) goto parse_can_move;
+        break;
+      }
+
+      // optional bool can_move = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_can_move:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &can_move_)));
+          set_has_can_move();
+        } else {
+          goto handle_uninterpreted;
+        }
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -2979,6 +3001,11 @@ void MoveRequest::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteUInt32(3, this->direction(), output);
   }
 
+  // optional bool can_move = 4;
+  if (has_can_move()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(4, this->can_move(), output);
+  }
+
   if (!unknown_fields().empty()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -3000,6 +3027,11 @@ void MoveRequest::SerializeWithCachedSizes(
   // optional uint32 direction = 3;
   if (has_direction()) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(3, this->direction(), target);
+  }
+
+  // optional bool can_move = 4;
+  if (has_can_move()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(4, this->can_move(), target);
   }
 
   if (!unknown_fields().empty()) {
@@ -3032,6 +3064,11 @@ int MoveRequest::ByteSize() const {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::UInt32Size(
           this->direction());
+    }
+
+    // optional bool can_move = 4;
+    if (has_can_move()) {
+      total_size += 1 + 1;
     }
 
   }
@@ -3070,6 +3107,9 @@ void MoveRequest::MergeFrom(const MoveRequest& from) {
     if (from.has_direction()) {
       set_direction(from.direction());
     }
+    if (from.has_can_move()) {
+      set_can_move(from.can_move());
+    }
   }
   mutable_unknown_fields()->MergeFrom(from.unknown_fields());
 }
@@ -3096,6 +3136,7 @@ void MoveRequest::Swap(MoveRequest* other) {
     std::swap(uin_, other->uin_);
     std::swap(level_, other->level_);
     std::swap(direction_, other->direction_);
+    std::swap(can_move_, other->can_move_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     _unknown_fields_.Swap(&other->_unknown_fields_);
     std::swap(_cached_size_, other->_cached_size_);
@@ -5260,6 +5301,7 @@ void CheckFightResponse::Swap(CheckFightResponse* other) {
 #ifndef _MSC_VER
 const int ReportFightRequest::kUinFieldNumber;
 const int ReportFightRequest::kOpponentFieldNumber;
+const int ReportFightRequest::kLoserFieldNumber;
 const int ReportFightRequest::kDirectionFieldNumber;
 const int ReportFightRequest::kResetSelfFieldNumber;
 const int ReportFightRequest::kResetOpponentFieldNumber;
@@ -5285,6 +5327,7 @@ void ReportFightRequest::SharedCtor() {
   _cached_size_ = 0;
   uin_ = 0u;
   opponent_ = 0u;
+  loser_ = 0u;
   direction_ = 0u;
   reset_self_ = false;
   reset_opponent_ = false;
@@ -5327,6 +5370,7 @@ void ReportFightRequest::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     uin_ = 0u;
     opponent_ = 0u;
+    loser_ = 0u;
     direction_ = 0u;
     reset_self_ = false;
     reset_opponent_ = false;
@@ -5370,12 +5414,28 @@ bool ReportFightRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(24)) goto parse_direction;
+        if (input->ExpectTag(24)) goto parse_loser;
         break;
       }
 
-      // optional uint32 direction = 3;
+      // optional uint32 loser = 3;
       case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_loser:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::uint32, ::google::protobuf::internal::WireFormatLite::TYPE_UINT32>(
+                 input, &loser_)));
+          set_has_loser();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(32)) goto parse_direction;
+        break;
+      }
+
+      // optional uint32 direction = 4;
+      case 4: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_direction:
@@ -5386,12 +5446,12 @@ bool ReportFightRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(32)) goto parse_reset_self;
+        if (input->ExpectTag(40)) goto parse_reset_self;
         break;
       }
 
-      // optional bool reset_self = 4;
-      case 4: {
+      // optional bool reset_self = 5;
+      case 5: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_reset_self:
@@ -5402,12 +5462,12 @@ bool ReportFightRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(40)) goto parse_reset_opponent;
+        if (input->ExpectTag(48)) goto parse_reset_opponent;
         break;
       }
 
-      // optional bool reset_opponent = 5;
-      case 5: {
+      // optional bool reset_opponent = 6;
+      case 6: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_reset_opponent:
@@ -5418,12 +5478,12 @@ bool ReportFightRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(48)) goto parse_level;
+        if (input->ExpectTag(56)) goto parse_level;
         break;
       }
 
-      // optional uint32 level = 6;
-      case 6: {
+      // optional uint32 level = 7;
+      case 7: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_level:
@@ -5434,12 +5494,12 @@ bool ReportFightRequest::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(56)) goto parse_opponent_level;
+        if (input->ExpectTag(64)) goto parse_opponent_level;
         break;
       }
 
-      // optional uint32 opponent_level = 7;
-      case 7: {
+      // optional uint32 opponent_level = 8;
+      case 8: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_opponent_level:
@@ -5482,29 +5542,34 @@ void ReportFightRequest::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteUInt32(2, this->opponent(), output);
   }
 
-  // optional uint32 direction = 3;
+  // optional uint32 loser = 3;
+  if (has_loser()) {
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(3, this->loser(), output);
+  }
+
+  // optional uint32 direction = 4;
   if (has_direction()) {
-    ::google::protobuf::internal::WireFormatLite::WriteUInt32(3, this->direction(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(4, this->direction(), output);
   }
 
-  // optional bool reset_self = 4;
+  // optional bool reset_self = 5;
   if (has_reset_self()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(4, this->reset_self(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteBool(5, this->reset_self(), output);
   }
 
-  // optional bool reset_opponent = 5;
+  // optional bool reset_opponent = 6;
   if (has_reset_opponent()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(5, this->reset_opponent(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteBool(6, this->reset_opponent(), output);
   }
 
-  // optional uint32 level = 6;
+  // optional uint32 level = 7;
   if (has_level()) {
-    ::google::protobuf::internal::WireFormatLite::WriteUInt32(6, this->level(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(7, this->level(), output);
   }
 
-  // optional uint32 opponent_level = 7;
+  // optional uint32 opponent_level = 8;
   if (has_opponent_level()) {
-    ::google::protobuf::internal::WireFormatLite::WriteUInt32(7, this->opponent_level(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(8, this->opponent_level(), output);
   }
 
   if (!unknown_fields().empty()) {
@@ -5525,29 +5590,34 @@ void ReportFightRequest::SerializeWithCachedSizes(
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(2, this->opponent(), target);
   }
 
-  // optional uint32 direction = 3;
+  // optional uint32 loser = 3;
+  if (has_loser()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(3, this->loser(), target);
+  }
+
+  // optional uint32 direction = 4;
   if (has_direction()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(3, this->direction(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(4, this->direction(), target);
   }
 
-  // optional bool reset_self = 4;
+  // optional bool reset_self = 5;
   if (has_reset_self()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(4, this->reset_self(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(5, this->reset_self(), target);
   }
 
-  // optional bool reset_opponent = 5;
+  // optional bool reset_opponent = 6;
   if (has_reset_opponent()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(5, this->reset_opponent(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(6, this->reset_opponent(), target);
   }
 
-  // optional uint32 level = 6;
+  // optional uint32 level = 7;
   if (has_level()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(6, this->level(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(7, this->level(), target);
   }
 
-  // optional uint32 opponent_level = 7;
+  // optional uint32 opponent_level = 8;
   if (has_opponent_level()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(7, this->opponent_level(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(8, this->opponent_level(), target);
   }
 
   if (!unknown_fields().empty()) {
@@ -5575,31 +5645,38 @@ int ReportFightRequest::ByteSize() const {
           this->opponent());
     }
 
-    // optional uint32 direction = 3;
+    // optional uint32 loser = 3;
+    if (has_loser()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::UInt32Size(
+          this->loser());
+    }
+
+    // optional uint32 direction = 4;
     if (has_direction()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::UInt32Size(
           this->direction());
     }
 
-    // optional bool reset_self = 4;
+    // optional bool reset_self = 5;
     if (has_reset_self()) {
       total_size += 1 + 1;
     }
 
-    // optional bool reset_opponent = 5;
+    // optional bool reset_opponent = 6;
     if (has_reset_opponent()) {
       total_size += 1 + 1;
     }
 
-    // optional uint32 level = 6;
+    // optional uint32 level = 7;
     if (has_level()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::UInt32Size(
           this->level());
     }
 
-    // optional uint32 opponent_level = 7;
+    // optional uint32 opponent_level = 8;
     if (has_opponent_level()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::UInt32Size(
@@ -5638,6 +5715,9 @@ void ReportFightRequest::MergeFrom(const ReportFightRequest& from) {
     }
     if (from.has_opponent()) {
       set_opponent(from.opponent());
+    }
+    if (from.has_loser()) {
+      set_loser(from.loser());
     }
     if (from.has_direction()) {
       set_direction(from.direction());
@@ -5679,6 +5759,7 @@ void ReportFightRequest::Swap(ReportFightRequest* other) {
   if (other != this) {
     std::swap(uin_, other->uin_);
     std::swap(opponent_, other->opponent_);
+    std::swap(loser_, other->loser_);
     std::swap(direction_, other->direction_);
     std::swap(reset_self_, other->reset_self_);
     std::swap(reset_opponent_, other->reset_opponent_);

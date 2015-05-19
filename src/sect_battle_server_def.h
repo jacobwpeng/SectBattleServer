@@ -18,8 +18,10 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <tuple>
 #include <alpha/mmap_file.h>
 #include <alpha/skip_list.h>
+#include <alpha/time_util.h>
 
 namespace SectBattle {
     //错误码
@@ -35,6 +37,8 @@ namespace SectBattle {
         kNoOpponent = -1007,
         kNoOpponentFound = -1008,
         kBattleFieldFull = -1009,
+        kOpponentInProtection = -1010,
+        kCannotMove = -1011,
     };
     //战场格子类型
     enum class FieldType {
@@ -62,11 +66,18 @@ namespace SectBattle {
         kLeft = 3,
         kRight = 4
     };
+
+    //for std::get<*>(combatant_identity);
+    enum {
+        kCombatantLevel = 0,
+        kCombatantDefeatedTimeStamp = 1,
+        kCombatantUin = 2
+    };
     
     using UinType = uint32_t;
     using LevelType = uint16_t;
     using OpponentList = std::vector<UinType>;
-    using CombatantIdentity = std::pair<LevelType, UinType>;
+    using CombatantIdentity = std::tuple<LevelType, alpha::TimeStamp, UinType>;
     using GarrisonSet = std::set<CombatantIdentity>;
     using GarrisonIterator = GarrisonSet::iterator;
 
@@ -101,11 +112,12 @@ namespace SectBattle {
     class Field {
         public:
             Field(SectType owner, FieldType type);
-            GarrisonSet::iterator AddGarrison(UinType uin, LevelType level);
+            GarrisonSet::iterator AddGarrison(UinType uin, LevelType level,
+                    alpha::TimeStamp last_defeated_time = 0);
             void ChangeOwner(SectType new_owner);
             void ReduceGarrison(UinType uin, GarrisonIterator it);
             void UpdateGarrisonLevel(UinType uin, LevelType newlevel, GarrisonIterator it);
-            OpponentList GetOpponents(LevelType level);
+            OpponentList GetOpponents(LevelType level, alpha::TimeStamp defeated_before);
             SectType Owner() const;
             FieldType Type() const;
             uint32_t GarrisonNum() const;
@@ -113,7 +125,8 @@ namespace SectBattle {
         private:
             //从level这个等级最多取出needs个人
             //如果取出的人数恰好为needs, 返回true, 否则为false
-            bool FindOpponentsInLevel(LevelType level, unsigned needs, OpponentList*);
+            bool FindOpponentsInLevel(LevelType level, unsigned needs,
+                    alpha::TimeStamp defeated_before, OpponentList*);
             SectType owner_;
             FieldType type_;
             GarrisonSet garrison_;
@@ -160,6 +173,7 @@ namespace SectBattle {
         static CombatantLite Create(Pos p, LevelType l);
         Pos pos;
         LevelType level;
+        alpha::TimeStamp last_defeated_time;
     };
 
     struct OpponentLite {

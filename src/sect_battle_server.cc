@@ -241,7 +241,8 @@ namespace SectBattle {
             UinType uin = it->first;
             const CombatantLite& lite = it->second;
             auto field = CheckGetField(lite.pos);
-            auto combatant_iter = field.AddGarrison(uin, lite.level);
+            auto combatant_iter = field.AddGarrison(uin, lite.level,
+                    lite.last_defeated_time);
             auto sect = CheckGetSect(field.Owner());
             auto res = combatants_.emplace(std::piecewise_construct,
                     std::forward_as_tuple(uin),
@@ -358,7 +359,7 @@ namespace SectBattle {
 
         //处理等级变了的情况
         auto & combatant = combatant_iter->second;
-        auto old_level = combatant.Iterator()->first;
+        auto old_level = std::get<kCombatantLevel>(*combatant.Iterator());
         if (req->level() != old_level) {
             auto field = CheckGetField(combatant.CurrentPos());
             field.UpdateGarrisonLevel(uin, req->level(), combatant.Iterator());
@@ -422,7 +423,10 @@ namespace SectBattle {
     }
 
     ssize_t Server::HandleMove(const MoveRequest* req, char* out) {
-        if (unlikely(!req->has_uin() || !req->has_level())) {
+        if (unlikely(!req->has_uin() 
+                    || !req->has_level()
+                    || !req->has_direction()
+                    || !req->has_can_move())) {
             return -1;
         }
 
@@ -432,6 +436,7 @@ namespace SectBattle {
 
         MoveResponse resp;
         const UinType uin = req->uin();
+        bool can_move = req->can_move();
         resp.set_uin(uin);
         auto combatant_iter = combatants_.find(uin);
         if (combatant_iter == combatants_.end()) {
@@ -441,7 +446,6 @@ namespace SectBattle {
         }
 
         auto & combatant = combatant_iter->second;
-
         auto current_pos = combatant.CurrentPos();
         auto direction = static_cast<Direction>(req->direction());
         auto res = current_pos.Apply(direction);
@@ -454,22 +458,27 @@ namespace SectBattle {
 
             auto owner = new_field.Owner();
             OpponentList opponents = combatant.GetOpponents(direction);
-            if (owner != SectType::kNone && owner !=  combatant.CurrentSect()->Type()
-                    && !opponents.empty()) {
+            if (owner != SectType::kNone && owner != combatant.CurrentSect()->Type()
+                    && opponents.empty()) {
                 //移动到其它门派占领的格子, 而这个方向又没有刷新过对手，生成一下对手
-                opponents = new_field.GetOpponents(req->level());
+                opponents = new_field.GetOpponents(req->level(), LastTimeNotInProtection());
             }
             bool pos_changed = false;
             if (owner == SectType::kNone || owner == combatant.CurrentSect()->Type()
                     || opponents.empty()) {
                 //移动到没有人占领，或者是属于本门派的格子, 或者这个格子没有人
-                //这个格子换主人了
-                new_field.ChangeOwner(combatant.CurrentSect()->Type());
-                //更新玩家的位置
-                MoveCombatant(uin, req->level(), &combatant, new_pos);
-                resp.set_code(static_cast<int>(Code::kOk));
-                pos_changed = true;
-                RecordSect(new_pos, combatant.CurrentSect()->Type());
+                if (!can_move) {
+                    //玩家不能移动，大抵是因为他没有行动力了
+                    resp.set_code(static_cast<int>(Code::kCannotMove));
+                } else {
+                    //这个格子换主人了
+                    new_field.ChangeOwner(combatant.CurrentSect()->Type());
+                    //更新玩家的位置
+                    MoveCombatant(uin, req->level(), &combatant, new_pos);
+                    resp.set_code(static_cast<int>(Code::kOk));
+                    pos_changed = true;
+                    RecordSect(new_pos, combatant.CurrentSect()->Type());
+                }
             } else {
                 //移动到其它门派占领的格子上, 而且格子里有人
                 assert (!opponents.empty());
@@ -557,7 +566,7 @@ namespace SectBattle {
             return WriteResponse(resp, out);
         }
         auto field = CheckGetField(combatant.CurrentPos());
-        auto new_opponents = field.GetOpponents(level);
+        auto new_opponents = field.GetOpponents(level, LastTimeNotInProtection());
         if (new_opponents.empty()) {
             resp.set_code(static_cast<int>(Code::kNoOpponentFound));
         } else {
@@ -613,7 +622,7 @@ namespace SectBattle {
         auto it = std::find(opponents.begin(), opponents.end(), opponent_uin);
         if (it == opponents.end()) {
             resp.set_code(static_cast<int>(Code::kInvalidOpponent));
-            SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
+            //SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
             return WriteResponse(resp, out);
         }
 
@@ -627,9 +636,10 @@ namespace SectBattle {
         return WriteResponse(resp, out);
     }
 
-    ssize_t Server::HandleReportFight(const ReportFightRequest* req, char*) {
+    ssize_t Server::HandleReportFight(const ReportFightRequest* req, char* out) {
         if (unlikely(!req->has_uin() 
                     || !req->has_opponent() 
+                    || !req->has_loser()
                     || !req->has_direction()
                     || !req->has_reset_self() 
                     || !req->has_reset_opponent()
@@ -644,6 +654,7 @@ namespace SectBattle {
 
         auto uin = req->uin();
         auto opponent_uin = req->opponent();
+        auto loser = req->loser();
         auto direction = static_cast<Direction>(req->direction());
         auto should_reset_self = req->reset_self();
         auto should_reset_opponent = req->reset_opponent();
@@ -673,8 +684,10 @@ namespace SectBattle {
                 MoveCombatant(opponent_uin, req->opponent_level(), &opponent,
                         opponent.CurrentSect()->BornPos());
             }
+            RecordCombatantDefeatedTime(loser);
+            SetBattleField(self.CurrentPos(), resp.mutable_battle_field());
         }
-        return 0;
+        return WriteResponse(resp, out);
     }
 
     void Server::MoveCombatant(UinType uin, LevelType level,
@@ -705,6 +718,12 @@ namespace SectBattle {
 
     void Server::RecordCombatant(UinType uin, Pos current_pos, LevelType level) {
         (*combatant_map_)[uin] = CombatantLite::Create(current_pos, level);
+    }
+
+    void Server::RecordCombatantDefeatedTime(UinType uin) {
+        auto it = combatant_map_->find(uin);
+        assert (it != combatant_map_->end());
+        it->second.last_defeated_time = alpha::Now();
     }
 
     void Server::RecordSect(Pos pos, SectType sect_type) {
@@ -838,6 +857,11 @@ namespace SectBattle {
             }
             backup_coroutine_.reset();
         }
+    }
+
+    alpha::TimeStamp Server::LastTimeNotInProtection() const {
+        auto now = alpha::Now();
+        return now - conf_->DefeatedProtectionDuration();
     }
 
     SectType Server::RandomSect() {

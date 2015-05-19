@@ -14,6 +14,15 @@
 #include <alpha/random.h>
 #include <algorithm>
 
+namespace {
+    template<typename T>
+    int Compare(T lhs, T rhs) {
+        if (lhs < rhs) return -1;
+        else if (lhs > rhs) return 1;
+        else return 0;
+    }
+}
+
 namespace SectBattle {
     const char* kBackupMetaDataKey = "backup_metadata";
     const char* kCombatantMapDataKey = "combatant_map";
@@ -31,10 +40,25 @@ namespace SectBattle {
     }
 
     bool operator < (const CombatantIdentity& lhs, const CombatantIdentity& rhs) {
-        uint64_t l = (static_cast<uint64_t>(lhs.first) << 32) + lhs.second;
-        uint64_t r = (static_cast<uint64_t>(rhs.first) << 32) + rhs.second;
+        //1.Level小的在前
+        //2.TimeStamp大的在前
+        //3.Uin小的在前
+        int res = Compare(std::get<kCombatantLevel>(lhs), std::get<kCombatantLevel>(rhs));
+        if (res != 0) {
+            return res < 0 ? true : false;
+        }
 
-        return l < r;
+        res = Compare(std::get<kCombatantDefeatedTimeStamp>(lhs),
+                std::get<kCombatantDefeatedTimeStamp>(rhs));
+        if (res != 0) {
+            return res > 0 ? true : false;
+        }
+
+        res = Compare(std::get<kCombatantUin>(lhs), std::get<kCombatantUin>(rhs));
+        if (res != 0) {
+            return res < 0 ? true : false;
+        }
+        return false;
     }
 
     Pos Pos::Create(int16_t x, int16_t y) {
@@ -113,9 +137,9 @@ namespace SectBattle {
         :owner_(owner), type_(type) {
     }
 
-    GarrisonIterator Field::AddGarrison(UinType uin, LevelType level) {
-        auto p = std::make_pair(level, uin);
-        auto res = garrison_.insert(p);
+    GarrisonIterator Field::AddGarrison(UinType uin, LevelType level,
+            alpha::TimeStamp last_defeated_time) {
+        auto res = garrison_.insert(CombatantIdentity(level, last_defeated_time, uin));
         assert (res.second);
         return res.first;
     }
@@ -136,13 +160,14 @@ namespace SectBattle {
             GarrisonIterator it) {
         assert (it != garrison_.end());
         assert (garrison_.find(*it) == it);
+        auto last_defeated_time = std::get<kCombatantDefeatedTimeStamp>(*it);
         garrison_.erase(it);
-        auto res = garrison_.insert(std::make_pair(newlevel, uin));
+        auto res = garrison_.insert(CombatantIdentity(newlevel, last_defeated_time, uin));
         assert (res.second);
         (void)res;
     }
 
-    OpponentList Field::GetOpponents(LevelType level) {
+    OpponentList Field::GetOpponents(LevelType level, alpha::TimeStamp defeated_before) {
         OpponentList opponents;
         const auto kMaxOpponents = 5u;
         auto last = garrison_.end();
@@ -152,13 +177,13 @@ namespace SectBattle {
         }
 
         //先找同一等级段的
-        if (FindOpponentsInLevel(level, kMaxOpponents, &opponents)) {
+        if (FindOpponentsInLevel(level, kMaxOpponents, defeated_before, &opponents)) {
             return opponents;
         }
 
         --last;
-        const auto min_searching_level = garrison_.begin()->first;
-        const auto max_searching_level = last->first;
+        const auto min_searching_level = std::get<kCombatantLevel>(*garrison_.begin());
+        const auto max_searching_level = std::get<kCombatantLevel>(*last);
 
         //同一等级段不足，则在上下等级段查找
         int current_searching_level_offset = 1;
@@ -168,7 +193,8 @@ namespace SectBattle {
 
             if (current_search_level >= min_searching_level) {
                 auto needs = kMaxOpponents - opponents.size();
-                if (FindOpponentsInLevel(current_search_level, needs, &opponents)) {
+                if (FindOpponentsInLevel(current_search_level, needs, defeated_before,
+                            &opponents)) {
                     break;
                 }
             }
@@ -176,7 +202,8 @@ namespace SectBattle {
             current_search_level = static_cast<int>(level) + current_searching_level_offset;
             if (current_search_level <= max_searching_level) {
                 auto needs = kMaxOpponents - opponents.size();
-                if (FindOpponentsInLevel(current_search_level, needs, &opponents)) {
+                if (FindOpponentsInLevel(current_search_level, needs, defeated_before,
+                            &opponents)) {
                     break;
                 }
             }
@@ -199,12 +226,14 @@ namespace SectBattle {
     }
 
     bool Field::FindOpponentsInLevel(LevelType level, unsigned needs,
-            OpponentList* opponents) {
+            alpha::TimeStamp defeated_before, OpponentList* opponents) {
         assert (opponents);
-        auto it = garrison_.lower_bound(std::make_pair(level,
-                    std::numeric_limits<UinType>::min()));
-        auto last = garrison_.upper_bound(std::make_pair(level,
-                    std::numeric_limits<UinType>::max()));
+        CombatantIdentity lower(level, defeated_before,
+                std::numeric_limits<UinType>::min());
+        CombatantIdentity upper(level, std::numeric_limits<alpha::TimeStamp>::min(),
+                std::numeric_limits<UinType>::max());
+        auto it = garrison_.lower_bound(lower);
+        auto last = garrison_.upper_bound(upper);
 
         //这个等级段没人
         if (it == last) {
@@ -214,7 +243,7 @@ namespace SectBattle {
         auto iterators = alpha::Random::Sample(first, last, needs);
         std::for_each(iterators.begin(), iterators.end(), 
                 [opponents](decltype(it) it) {
-            opponents->push_back(it->second);
+            opponents->push_back(std::get<kCombatantUin>(*it));
         });
 
         return iterators.size() == needs;
@@ -300,6 +329,7 @@ namespace SectBattle {
         CombatantLite lite;
         lite.pos = p;
         lite.level = l;
+        lite.last_defeated_time = 0;
         return lite;
     }
 

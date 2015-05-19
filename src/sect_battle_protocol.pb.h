@@ -939,6 +939,13 @@ class MoveRequest : public ::google::protobuf::Message {
   inline ::google::protobuf::uint32 direction() const;
   inline void set_direction(::google::protobuf::uint32 value);
 
+  // optional bool can_move = 4;
+  inline bool has_can_move() const;
+  inline void clear_can_move();
+  static const int kCanMoveFieldNumber = 4;
+  inline bool can_move() const;
+  inline void set_can_move(bool value);
+
   // @@protoc_insertion_point(class_scope:SectBattle.MoveRequest)
  private:
   inline void set_has_uin();
@@ -947,15 +954,18 @@ class MoveRequest : public ::google::protobuf::Message {
   inline void clear_has_level();
   inline void set_has_direction();
   inline void clear_has_direction();
+  inline void set_has_can_move();
+  inline void clear_has_can_move();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
   ::google::protobuf::uint32 uin_;
   ::google::protobuf::uint32 level_;
   ::google::protobuf::uint32 direction_;
+  bool can_move_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
 
   friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
   friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
@@ -1782,38 +1792,45 @@ class ReportFightRequest : public ::google::protobuf::Message {
   inline ::google::protobuf::uint32 opponent() const;
   inline void set_opponent(::google::protobuf::uint32 value);
 
-  // optional uint32 direction = 3;
+  // optional uint32 loser = 3;
+  inline bool has_loser() const;
+  inline void clear_loser();
+  static const int kLoserFieldNumber = 3;
+  inline ::google::protobuf::uint32 loser() const;
+  inline void set_loser(::google::protobuf::uint32 value);
+
+  // optional uint32 direction = 4;
   inline bool has_direction() const;
   inline void clear_direction();
-  static const int kDirectionFieldNumber = 3;
+  static const int kDirectionFieldNumber = 4;
   inline ::google::protobuf::uint32 direction() const;
   inline void set_direction(::google::protobuf::uint32 value);
 
-  // optional bool reset_self = 4;
+  // optional bool reset_self = 5;
   inline bool has_reset_self() const;
   inline void clear_reset_self();
-  static const int kResetSelfFieldNumber = 4;
+  static const int kResetSelfFieldNumber = 5;
   inline bool reset_self() const;
   inline void set_reset_self(bool value);
 
-  // optional bool reset_opponent = 5;
+  // optional bool reset_opponent = 6;
   inline bool has_reset_opponent() const;
   inline void clear_reset_opponent();
-  static const int kResetOpponentFieldNumber = 5;
+  static const int kResetOpponentFieldNumber = 6;
   inline bool reset_opponent() const;
   inline void set_reset_opponent(bool value);
 
-  // optional uint32 level = 6;
+  // optional uint32 level = 7;
   inline bool has_level() const;
   inline void clear_level();
-  static const int kLevelFieldNumber = 6;
+  static const int kLevelFieldNumber = 7;
   inline ::google::protobuf::uint32 level() const;
   inline void set_level(::google::protobuf::uint32 value);
 
-  // optional uint32 opponent_level = 7;
+  // optional uint32 opponent_level = 8;
   inline bool has_opponent_level() const;
   inline void clear_opponent_level();
-  static const int kOpponentLevelFieldNumber = 7;
+  static const int kOpponentLevelFieldNumber = 8;
   inline ::google::protobuf::uint32 opponent_level() const;
   inline void set_opponent_level(::google::protobuf::uint32 value);
 
@@ -1823,6 +1840,8 @@ class ReportFightRequest : public ::google::protobuf::Message {
   inline void clear_has_uin();
   inline void set_has_opponent();
   inline void clear_has_opponent();
+  inline void set_has_loser();
+  inline void clear_has_loser();
   inline void set_has_direction();
   inline void clear_has_direction();
   inline void set_has_reset_self();
@@ -1838,6 +1857,7 @@ class ReportFightRequest : public ::google::protobuf::Message {
 
   ::google::protobuf::uint32 uin_;
   ::google::protobuf::uint32 opponent_;
+  ::google::protobuf::uint32 loser_;
   ::google::protobuf::uint32 direction_;
   bool reset_self_;
   bool reset_opponent_;
@@ -1845,7 +1865,7 @@ class ReportFightRequest : public ::google::protobuf::Message {
   ::google::protobuf::uint32 opponent_level_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(7 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(8 + 31) / 32];
 
   friend void  protobuf_AddDesc_sect_5fbattle_5fprotocol_2eproto();
   friend void protobuf_AssignDesc_sect_5fbattle_5fprotocol_2eproto();
@@ -2691,6 +2711,28 @@ inline void MoveRequest::set_direction(::google::protobuf::uint32 value) {
   direction_ = value;
 }
 
+// optional bool can_move = 4;
+inline bool MoveRequest::has_can_move() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void MoveRequest::set_has_can_move() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void MoveRequest::clear_has_can_move() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void MoveRequest::clear_can_move() {
+  can_move_ = false;
+  clear_has_can_move();
+}
+inline bool MoveRequest::can_move() const {
+  return can_move_;
+}
+inline void MoveRequest::set_can_move(bool value) {
+  set_has_can_move();
+  can_move_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // MoveResponse
@@ -3343,15 +3385,37 @@ inline void ReportFightRequest::set_opponent(::google::protobuf::uint32 value) {
   opponent_ = value;
 }
 
-// optional uint32 direction = 3;
-inline bool ReportFightRequest::has_direction() const {
+// optional uint32 loser = 3;
+inline bool ReportFightRequest::has_loser() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void ReportFightRequest::set_has_direction() {
+inline void ReportFightRequest::set_has_loser() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void ReportFightRequest::clear_has_direction() {
+inline void ReportFightRequest::clear_has_loser() {
   _has_bits_[0] &= ~0x00000004u;
+}
+inline void ReportFightRequest::clear_loser() {
+  loser_ = 0u;
+  clear_has_loser();
+}
+inline ::google::protobuf::uint32 ReportFightRequest::loser() const {
+  return loser_;
+}
+inline void ReportFightRequest::set_loser(::google::protobuf::uint32 value) {
+  set_has_loser();
+  loser_ = value;
+}
+
+// optional uint32 direction = 4;
+inline bool ReportFightRequest::has_direction() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void ReportFightRequest::set_has_direction() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void ReportFightRequest::clear_has_direction() {
+  _has_bits_[0] &= ~0x00000008u;
 }
 inline void ReportFightRequest::clear_direction() {
   direction_ = 0u;
@@ -3365,15 +3429,15 @@ inline void ReportFightRequest::set_direction(::google::protobuf::uint32 value) 
   direction_ = value;
 }
 
-// optional bool reset_self = 4;
+// optional bool reset_self = 5;
 inline bool ReportFightRequest::has_reset_self() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
+  return (_has_bits_[0] & 0x00000010u) != 0;
 }
 inline void ReportFightRequest::set_has_reset_self() {
-  _has_bits_[0] |= 0x00000008u;
+  _has_bits_[0] |= 0x00000010u;
 }
 inline void ReportFightRequest::clear_has_reset_self() {
-  _has_bits_[0] &= ~0x00000008u;
+  _has_bits_[0] &= ~0x00000010u;
 }
 inline void ReportFightRequest::clear_reset_self() {
   reset_self_ = false;
@@ -3387,15 +3451,15 @@ inline void ReportFightRequest::set_reset_self(bool value) {
   reset_self_ = value;
 }
 
-// optional bool reset_opponent = 5;
+// optional bool reset_opponent = 6;
 inline bool ReportFightRequest::has_reset_opponent() const {
-  return (_has_bits_[0] & 0x00000010u) != 0;
+  return (_has_bits_[0] & 0x00000020u) != 0;
 }
 inline void ReportFightRequest::set_has_reset_opponent() {
-  _has_bits_[0] |= 0x00000010u;
+  _has_bits_[0] |= 0x00000020u;
 }
 inline void ReportFightRequest::clear_has_reset_opponent() {
-  _has_bits_[0] &= ~0x00000010u;
+  _has_bits_[0] &= ~0x00000020u;
 }
 inline void ReportFightRequest::clear_reset_opponent() {
   reset_opponent_ = false;
@@ -3409,15 +3473,15 @@ inline void ReportFightRequest::set_reset_opponent(bool value) {
   reset_opponent_ = value;
 }
 
-// optional uint32 level = 6;
+// optional uint32 level = 7;
 inline bool ReportFightRequest::has_level() const {
-  return (_has_bits_[0] & 0x00000020u) != 0;
+  return (_has_bits_[0] & 0x00000040u) != 0;
 }
 inline void ReportFightRequest::set_has_level() {
-  _has_bits_[0] |= 0x00000020u;
+  _has_bits_[0] |= 0x00000040u;
 }
 inline void ReportFightRequest::clear_has_level() {
-  _has_bits_[0] &= ~0x00000020u;
+  _has_bits_[0] &= ~0x00000040u;
 }
 inline void ReportFightRequest::clear_level() {
   level_ = 0u;
@@ -3431,15 +3495,15 @@ inline void ReportFightRequest::set_level(::google::protobuf::uint32 value) {
   level_ = value;
 }
 
-// optional uint32 opponent_level = 7;
+// optional uint32 opponent_level = 8;
 inline bool ReportFightRequest::has_opponent_level() const {
-  return (_has_bits_[0] & 0x00000040u) != 0;
+  return (_has_bits_[0] & 0x00000080u) != 0;
 }
 inline void ReportFightRequest::set_has_opponent_level() {
-  _has_bits_[0] |= 0x00000040u;
+  _has_bits_[0] |= 0x00000080u;
 }
 inline void ReportFightRequest::clear_has_opponent_level() {
-  _has_bits_[0] &= ~0x00000040u;
+  _has_bits_[0] &= ~0x00000080u;
 }
 inline void ReportFightRequest::clear_opponent_level() {
   opponent_level_ = 0u;

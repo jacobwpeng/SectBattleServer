@@ -95,6 +95,7 @@ namespace SectBattle {
             ssize_t HandleReportFight(const ReportFightRequest* req, char* out);
             void MoveCombatant(UinType uin, LevelType level, Combatant* combatant, Pos pos);
             SectType RandomSect();
+            alpha::TimeStamp LastTimeNotInProtection() const;
             void SetBattleField(Pos current_pos, BattleField*);
             ssize_t WriteResponse(const google::protobuf::Message& resp, char* out);
             Combatant& CheckGetCombatant(UinType uin);
@@ -105,6 +106,7 @@ namespace SectBattle {
 
             //落地各种操作（备份恢复用）
             void RecordCombatant(UinType uin, Pos current_pos, LevelType level);
+            void RecordCombatantDefeatedTime(UinType uin);
             void RecordSect(Pos pos, SectType sect_type);
             void RecordOpponent(UinType uin, Direction d, const OpponentList& opponents);
 

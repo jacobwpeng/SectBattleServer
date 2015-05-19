@@ -49,6 +49,7 @@ message MoveRequest {
     optional uint32 uin = 1;
     optional uint32 level = 2;
     optional uint32 direction = 3;
+    optional bool can_move = 4;
 }
 
 message MoveResponse {
@@ -98,11 +99,12 @@ message CheckFightResponse {
 message ReportFightRequest {
     optional uint32 uin = 1;
     optional uint32 opponent = 2;
-    optional uint32 direction = 3;
-    optional bool reset_self = 4;
-    optional bool reset_opponent = 5;
-    optional uint32 level = 6;
-    optional uint32 opponent_level = 7;
+    optional uint32 loser = 3;
+    optional uint32 direction = 4;
+    optional bool reset_self = 5;
+    optional bool reset_opponent = 6;
+    optional uint32 level = 7;
+    optional uint32 opponent_level = 8;
 }
 
 message ReportFightResponse {

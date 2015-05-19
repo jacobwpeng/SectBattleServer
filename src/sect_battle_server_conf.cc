@@ -79,4 +79,8 @@ namespace SectBattle {
 
         return one.date().week_number() == another.date().week_number();
     }
+
+    int ServerConf::DefeatedProtectionDuration() const {
+        return 30 * 1000; //30s in milliseconds
+    }
 }

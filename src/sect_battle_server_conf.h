@@ -24,6 +24,8 @@ namespace SectBattle {
 
             Pos GetBornPos(SectType sect_type) const;
             bool InSameSeason(time_t lhs, time_t rhs) const;
+            //in milliseconds
+            int DefeatedProtectionDuration() const;
 
         private:
             std::map<SectType, Pos> born_positions_;
