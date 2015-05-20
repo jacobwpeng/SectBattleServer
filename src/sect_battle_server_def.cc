@@ -11,8 +11,9 @@
  */
 
 #include "sect_battle_server_def.h"
-#include <alpha/random.h>
 #include <algorithm>
+#include <alpha/random.h>
+#include <alpha/logger.h>
 
 namespace {
     template<typename T>
@@ -80,7 +81,7 @@ namespace SectBattle {
         if (d == Direction::kUp && y_ == 0) {
             return std::make_pair(*this, false);
         }
-        if (d == Direction::kDonw && y_ == kMaxPos) {
+        if (d == Direction::kDown && y_ == kMaxPos) {
             return std::make_pair(*this, false);
         }
         if (d == Direction::kLeft && x_ == 0) {
@@ -97,7 +98,7 @@ namespace SectBattle {
             case Direction::kUp:
                 y -= 1;
                 break;
-            case Direction::kDonw:
+            case Direction::kDown:
                 y += 1;
                 break;
             case Direction::kLeft:
@@ -150,21 +151,25 @@ namespace SectBattle {
 
     void Field::ReduceGarrison(UinType uin, GarrisonIterator it) {
         assert (it != garrison_.end());
-        assert (it->second == uin);
-        assert (garrison_.find(*it) != it);
+        assert (std::get<kCombatantUin>(*it) == uin);
+        assert (garrison_.find(*it) == it);
         (void)uin;
         garrison_.erase(it);
     }
 
-    void Field::UpdateGarrisonLevel(UinType uin, LevelType newlevel,
+    GarrisonIterator Field::UpdateGarrisonLevel(UinType uin, LevelType newlevel,
             GarrisonIterator it) {
         assert (it != garrison_.end());
         assert (garrison_.find(*it) == it);
+        auto oldlevel = std::get<kCombatantLevel>(*it);
+        if (newlevel == oldlevel) {
+            return it;
+        }
         auto last_defeated_time = std::get<kCombatantDefeatedTimeStamp>(*it);
         garrison_.erase(it);
         auto res = garrison_.insert(CombatantIdentity(newlevel, last_defeated_time, uin));
         assert (res.second);
-        (void)res;
+        return res.first;
     }
 
     OpponentList Field::GetOpponents(LevelType level, alpha::TimeStamp defeated_before) {

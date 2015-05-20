@@ -47,7 +47,7 @@ namespace tokyotyrant {
             tcp_client_->ConnectTo(addr, true);
             state_ = ConnectionState::kConnecting;
             co_->Yield();
-            return Connected() ? kOk : kRefused;
+            return Connected() ? static_cast<int>(kOk) : static_cast<int>(kRefused);
         }
     }
 

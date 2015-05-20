@@ -62,7 +62,7 @@ namespace SectBattle {
 
     enum class Direction {
         kUp = 1,
-        kDonw = 2,
+        kDown = 2,
         kLeft = 3,
         kRight = 4
     };
@@ -112,11 +112,12 @@ namespace SectBattle {
     class Field {
         public:
             Field(SectType owner, FieldType type);
-            GarrisonSet::iterator AddGarrison(UinType uin, LevelType level,
+            DISABLE_COPY_ASSIGNMENT(Field);
+            GarrisonIterator AddGarrison(UinType uin, LevelType level,
                     alpha::TimeStamp last_defeated_time = 0);
             void ChangeOwner(SectType new_owner);
             void ReduceGarrison(UinType uin, GarrisonIterator it);
-            void UpdateGarrisonLevel(UinType uin, LevelType newlevel, GarrisonIterator it);
+            GarrisonIterator UpdateGarrisonLevel(UinType uin, LevelType newlevel, GarrisonIterator it);
             OpponentList GetOpponents(LevelType level, alpha::TimeStamp defeated_before);
             SectType Owner() const;
             FieldType Type() const;
@@ -135,6 +136,7 @@ namespace SectBattle {
     class Sect {
         public:
             Sect(SectType type, Pos born_pos);
+            DISABLE_COPY_ASSIGNMENT(Sect);
             void AddMember(UinType uin);
             void RemoveMember(UinType uin);
             uint32_t MemberCount() const;
@@ -151,6 +153,7 @@ namespace SectBattle {
     class Combatant {
         public:
             Combatant(const Sect* sect, Pos pos, GarrisonIterator iter);
+            DISABLE_COPY_ASSIGNMENT(Combatant);
             void MoveTo(Pos pos);
             void SetIterator(GarrisonIterator iter);
             void ChangeSect(const Sect* new_sect);

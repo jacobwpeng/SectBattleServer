@@ -18,8 +18,7 @@ message PBField {
 
 message BattleField {
     optional PBPos self_position = 1;
-    repeated uint32 sect_members_count = 2;
-    repeated PBField field = 3;
+    repeated PBField field = 2;
 }
 
 message QueryBattleFieldRequest {

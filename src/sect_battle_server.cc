@@ -14,6 +14,7 @@
 
 #include <limits.h>
 #include <functional>
+#include <google/protobuf/descriptor.h>
 #include <gflags/gflags.h>
 #include <alpha/compiler.h>
 #include <alpha/logger.h>
@@ -94,7 +95,7 @@ namespace SectBattle {
         dispatcher_->Register<ReportFightRequest>(
                 std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
-        loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        //loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
         loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
@@ -232,7 +233,7 @@ namespace SectBattle {
 
         //恢复格子信息
         for (auto it = owner_map_->begin(); it != owner_map_->end(); ++it) {
-            auto field = CheckGetField(it->first);
+            Field& field = CheckGetField(it->first);
             field.ChangeOwner(it->second);
         }
 
@@ -240,10 +241,10 @@ namespace SectBattle {
         for (auto it = combatant_map_->begin(); it != combatant_map_->end(); ++it) {
             UinType uin = it->first;
             const CombatantLite& lite = it->second;
-            auto field = CheckGetField(lite.pos);
+            Field& field = CheckGetField(lite.pos);
             auto combatant_iter = field.AddGarrison(uin, lite.level,
                     lite.last_defeated_time);
-            auto sect = CheckGetSect(field.Owner());
+            Sect& sect = CheckGetSect(field.Owner());
             auto res = combatants_.emplace(std::piecewise_construct,
                     std::forward_as_tuple(uin),
                     std::forward_as_tuple(&sect, lite.pos, combatant_iter));
@@ -254,9 +255,9 @@ namespace SectBattle {
         //恢复玩家的对手信息
         for (auto it = opponent_map_->begin(); it != opponent_map_->end(); ++it) {
             UinType uin = it->first;
-            auto combatant = CheckGetCombatant(uin);
+            Combatant& combatant = CheckGetCombatant(uin);
             for (int i = static_cast<int>(Direction::kUp);
-                    i <= static_cast<int>(Direction::kDonw);
+                    i <= static_cast<int>(Direction::kDown);
                     ++i) {
                 assert (IsValidDirection(i));
                 Direction d = static_cast<Direction>(i);
@@ -309,7 +310,9 @@ namespace SectBattle {
             auto sect_type = static_cast<SectType>(sect);
             auto pos = conf_->GetBornPos(sect_type);
             assert (pos.Valid());
-            auto res = sects_.insert(std::make_pair(sect_type, Sect(sect_type, pos)));
+            auto res = sects_.emplace(std::piecewise_construct,
+                    std::forward_as_tuple(sect_type),
+                    std::forward_as_tuple(sect_type, pos));
             assert (res.second);
             (void)res;
         }
@@ -334,8 +337,8 @@ namespace SectBattle {
         }
 
         auto ret = dispatcher_->Dispatch(m.get(), out);
-        LOG_INFO_IF(ret < 0) << "message_name = " << wrapper.name()
-            << "ret = " << ret;
+        LOG_INFO_IF(ret < 0) << "Process failed, message_name = " << wrapper.name()
+            << ", ret = " << ret;
         return ret;
     }
 
@@ -355,14 +358,14 @@ namespace SectBattle {
         } else {
             pos = combatant_iter->second.CurrentPos();
             resp.set_code(static_cast<int>(Code::kOk));
-        }
-
-        //处理等级变了的情况
-        auto & combatant = combatant_iter->second;
-        auto old_level = std::get<kCombatantLevel>(*combatant.Iterator());
-        if (req->level() != old_level) {
-            auto field = CheckGetField(combatant.CurrentPos());
-            field.UpdateGarrisonLevel(uin, req->level(), combatant.Iterator());
+            //处理等级变了的情况
+            auto & combatant = combatant_iter->second;
+            auto old_level = std::get<kCombatantLevel>(*combatant.Iterator());
+            if (req->level() != old_level) {
+                Field& field = CheckGetField(combatant.CurrentPos());
+                combatant.SetIterator(field.UpdateGarrisonLevel(
+                            uin, req->level(), combatant.Iterator()));
+            }
         }
 
         SetBattleField(pos, resp.mutable_battle_field());
@@ -397,16 +400,18 @@ namespace SectBattle {
         } else if (unlikely(combatant_map_->size() == combatant_map_->max_size())) {
             //落地用的mmaped文件已经满了, 没法再增加人了
             resp.set_code(static_cast<int>(Code::kBattleFieldFull));
+            return WriteResponse(resp, out);
         } else {
             const auto sect_type = RandomSect();
 
-            auto sect = CheckGetSect(sect_type);
-            auto field = CheckGetField(sect.BornPos());
+            Sect& sect = CheckGetSect(sect_type);
+            Field& field = CheckGetField(sect.BornPos());
 
             //加入到对应门派中
             sect.AddMember(uin);
             //加入到对应门派出生点
-            auto it = field.AddGarrison(uin, level);
+            GarrisonIterator it = field.AddGarrison(uin, level);
+            assert (std::get<kCombatantUin>(*it) == uin);
             //加入到参战人员中
             auto res = combatants_.emplace(std::piecewise_construct,
                     std::forward_as_tuple(uin),
@@ -416,6 +421,10 @@ namespace SectBattle {
             resp.set_sect(static_cast<uint32_t>(sect_type));
             resp.set_code(static_cast<int>(Code::kOk));
             RecordCombatant(uin, sect.BornPos(), level);
+            DLOG_INFO << uin << " Joined, sect = " << sect_type
+                << ", level = " << level
+                << ", pos.x = " << sect.BornPos().X()
+                << ", pos.y = " << sect.BornPos().Y();
         }
         assert (combatant_iter != combatants_.end());
         SetBattleField(combatant_iter->second.CurrentPos(), resp.mutable_battle_field());
@@ -451,10 +460,13 @@ namespace SectBattle {
         auto res = current_pos.Apply(direction);
         if (!res.second) {
             //再移动就要出界了
+            DLOG_INFO << "current_pos.x = " << current_pos.X()
+                << ", current_pos.y = " << current_pos.Y()
+                << ", direction = " << direction;
             resp.set_code(static_cast<int>(Code::kInvalidDirection));
         } else {
             auto new_pos = res.first;
-            auto new_field = CheckGetField(new_pos);
+            Field& new_field = CheckGetField(new_pos);
 
             auto owner = new_field.Owner();
             OpponentList opponents = combatant.GetOpponents(direction);
@@ -522,8 +534,8 @@ namespace SectBattle {
             return WriteResponse(resp, out);
         }
 
-        auto current_sect = CheckGetSect(combatant.CurrentSect()->Type());
-        auto new_sect = CheckGetSect(sect_type);
+        Sect& current_sect = CheckGetSect(combatant.CurrentSect()->Type());
+        Sect& new_sect = CheckGetSect(sect_type);
         auto new_sect_born_pos = new_sect.BornPos();
 
         //从旧的门派里面干掉他
@@ -565,7 +577,7 @@ namespace SectBattle {
             resp.set_code(static_cast<int>(Code::kNoOpponent));
             return WriteResponse(resp, out);
         }
-        auto field = CheckGetField(combatant.CurrentPos());
+        Field& field = CheckGetField(combatant.CurrentPos());
         auto new_opponents = field.GetOpponents(level, LastTimeNotInProtection());
         if (new_opponents.empty()) {
             resp.set_code(static_cast<int>(Code::kNoOpponentFound));
@@ -700,9 +712,8 @@ namespace SectBattle {
         if (combatant->CurrentPos() == new_pos) {
             return;
         }
-
-        auto current_field = CheckGetField(combatant->CurrentPos());
-        auto new_field = CheckGetField(new_pos);
+        Field& current_field = CheckGetField(combatant->CurrentPos());
+        Field& new_field = CheckGetField(new_pos);
 
         //从旧的格子里干掉
         current_field.ReduceGarrison(uin, combatant->Iterator());
@@ -748,10 +759,10 @@ namespace SectBattle {
         static alpha::TimeStamp cache_create_time = 0;
 
         if (cache_create_time + FLAGS_battle_field_cache_ttl < alpha::Now()) {
+            cached_battle_field_->Clear();
             cached_battle_field_->mutable_self_position()->set_x(current_pos.X());
             cached_battle_field_->mutable_self_position()->set_y(current_pos.Y());
 
-            //TODO: 是否需要cache一份，防止每次都遍历
             for (const auto & p : battle_field_) {
                 const Field& field = p.second;
                 auto cell = cached_battle_field_->add_field();
@@ -761,22 +772,16 @@ namespace SectBattle {
                 cell->set_garrison_num(field.GarrisonNum());
             }
             assert (cached_battle_field_->field_size() == 100);
-
-            for (const auto & p : sects_) {
-                cached_battle_field_->add_sect_members_count(p.second.MemberCount());
-            }
-
-            assert (cached_battle_field_->sect_members_count_size()
-                    == static_cast<int>(SectType::kMax) - 1);
             cache_create_time = alpha::Now();
         }
         battle_field->CopyFrom(*cached_battle_field_);
     }
 
     ssize_t Server::WriteResponse(const google::protobuf::Message& resp, char* out) {
-        bool ok = resp.SerializeToArray(out, alpha::UdpServer::kOutputBufferSize);
+        bool ok = resp.SerializeToArray(out, resp.ByteSize());
         assert (ok);
         (void)ok;
+        DLOG_INFO << "resp.ByteSize() = " << resp.ByteSize();
         return resp.ByteSize();
     }
 

@@ -74,9 +74,6 @@ namespace SectBattle {
         one -= boost::posix_time::hours(3 * 24 + 6);
         another -= boost::posix_time::hours(3 * 24 + 6);
 
-        DLOG_INFO << "one.date().week_number() = " << one.date().week_number()
-            << ", another.date().week_number() = " << another.date().week_number();
-
         return one.date().week_number() == another.date().week_number();
     }
 
