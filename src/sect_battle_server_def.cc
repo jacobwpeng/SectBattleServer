@@ -118,20 +118,27 @@ namespace SectBattle {
             && y_ >= 0 && y_ <= kMaxPos;
     }
 
+    int64_t Pos::HashCode() const {
+        return (static_cast<int64_t>(y_) << 32) + x_;
+    }
+
     bool operator< (const Pos& lhs, const Pos& rhs) {
         assert (lhs.Valid());
         assert (rhs.Valid());
-        const uint16_t kYCoordinateWeight = 10;
-        return lhs.X() + lhs.Y() * kYCoordinateWeight 
-            < rhs.X() + rhs.Y() * kYCoordinateWeight;
+        return lhs.HashCode() < rhs.HashCode();
     }
 
     bool operator== (const Pos& lhs, const Pos& rhs) {
-        return lhs.X() == rhs.X() && lhs.Y() == rhs.Y();
+        return lhs.HashCode() == rhs.HashCode();
     }
 
     bool operator!= (const Pos& lhs, const Pos& rhs) {
         return !(lhs == rhs);
+    }
+
+    std::ostream& operator<<(std::ostream& os, const Pos& pos) {
+        os << "(" << pos.X() << ", " << pos.Y() << ")";
+        return os;
     }
 
     Field::Field(SectType owner, FieldType type)

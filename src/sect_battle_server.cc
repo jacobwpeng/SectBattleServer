@@ -403,6 +403,9 @@ namespace SectBattle {
             return WriteResponse(resp, out);
         } else {
             const auto sect_type = RandomSect();
+            LOG_INFO << "Combatant" << uin << " join battle"
+                << ", sect = " << sect_type
+                << ", level = " << level;
 
             Sect& sect = CheckGetSect(sect_type);
             Field& field = CheckGetField(sect.BornPos());
@@ -421,10 +424,6 @@ namespace SectBattle {
             resp.set_sect(static_cast<uint32_t>(sect_type));
             resp.set_code(static_cast<int>(Code::kOk));
             RecordCombatant(uin, sect.BornPos(), level);
-            DLOG_INFO << uin << " Joined, sect = " << sect_type
-                << ", level = " << level
-                << ", pos.x = " << sect.BornPos().X()
-                << ", pos.y = " << sect.BornPos().Y();
         }
         assert (combatant_iter != combatants_.end());
         SetBattleField(combatant_iter->second.CurrentPos(), resp.mutable_battle_field());
@@ -445,7 +444,7 @@ namespace SectBattle {
 
         MoveResponse resp;
         const UinType uin = req->uin();
-        bool can_move = req->can_move();
+        bool can_move = req->can_move(); //是否有足够的行动力进行移动
         resp.set_uin(uin);
         auto combatant_iter = combatants_.find(uin);
         if (combatant_iter == combatants_.end()) {
@@ -476,15 +475,42 @@ namespace SectBattle {
                 opponents = new_field.GetOpponents(req->level(), LastTimeNotInProtection());
             }
             bool pos_changed = false;
-            if (owner == SectType::kNone || owner == combatant.CurrentSect()->Type()
+            //几种可能可以移动的情况
+            if (owner == SectType::kNone
+                    || owner == combatant.CurrentSect()->Type()
                     || opponents.empty()) {
-                //移动到没有人占领，或者是属于本门派的格子, 或者这个格子没有人
-                if (!can_move) {
-                    //玩家不能移动，大抵是因为他没有行动力了
-                    resp.set_code(static_cast<int>(Code::kCannotMove));
+                bool perform_move_action = false;
+                if (owner == SectType::kNone || owner == combatant.CurrentSect()->Type()) {
+                    //移动到没人占领，或者是属于本门派的格子
+                    if (!can_move) {
+                        resp.set_code(static_cast<int>(Code::kCannotMove));
+                    }
+                    perform_move_action = true;
                 } else {
-                    //这个格子换主人了
-                    new_field.ChangeOwner(combatant.CurrentSect()->Type());
+                    //移动到其它门派的格子，但是刷新不到对手
+                    assert (opponents.empty());
+                    if (new_field.GarrisonNum() != 0) {
+                        //有人在却刷不出来对手，说明他们都在保护期
+                        resp.set_code(static_cast<int>(Code::kNoOpponentFound));
+                    } else if (conf_->GetBornPos(owner) == new_pos) {
+                        //虽然没人，但是这是人家出生点
+                        resp.set_code(static_cast<int>(Code::kCannotMoveToBornPos));
+                    } else if (!can_move) {
+                        //最后才判断是不是行动力不足
+                        resp.set_code(static_cast<int>(Code::kCannotMove));
+                    } else {
+                        perform_move_action = true;
+                    }
+                }
+                if (perform_move_action) {
+                    LOG_INFO << "Combatant " << uin << " pos changed, old pos = "
+                        << current_pos << ", new pos = " << new_pos;
+                    if (owner != combatant.CurrentSect()->Type()) {
+                        //这个格子换主人了
+                        LOG_INFO << "Field owner changed, old = " << owner
+                            << ", new = " << combatant.CurrentSect()->Type();
+                        new_field.ChangeOwner(combatant.CurrentSect()->Type());
+                    }
                     //更新玩家的位置
                     MoveCombatant(uin, req->level(), &combatant, new_pos);
                     resp.set_code(static_cast<int>(Code::kOk));
@@ -492,7 +518,7 @@ namespace SectBattle {
                     RecordSect(new_pos, combatant.CurrentSect()->Type());
                 }
             } else {
-                //移动到其它门派占领的格子上, 而且格子里有人
+                //移动到其它门派占领的格子上, 而且能够刷新到对手
                 assert (!opponents.empty());
                 combatant.ChangeOpponents(direction, opponents);
                 resp.set_code(static_cast<int>(Code::kOccupied));
@@ -533,6 +559,10 @@ namespace SectBattle {
             SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
             return WriteResponse(resp, out);
         }
+
+        LOG_INFO << "Combatant " << uin << " sect changed"
+            << ", old sect = " << combatant.CurrentSect()->Type()
+            << ", new sect = " << sect_type;
 
         Sect& current_sect = CheckGetSect(combatant.CurrentSect()->Type());
         Sect& new_sect = CheckGetSect(sect_type);
@@ -582,6 +612,7 @@ namespace SectBattle {
         if (new_opponents.empty()) {
             resp.set_code(static_cast<int>(Code::kNoOpponentFound));
         } else {
+            LOG_INFO << "Combatant " << uin << " opponents changed";
             combatant.ChangeOpponents(direction, new_opponents);
             std::copy(new_opponents.begin(), new_opponents.end(), 
                 google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
@@ -680,6 +711,12 @@ namespace SectBattle {
         } else if (opponent_iter == combatants_.end()) {
             resp.set_code(static_cast<int>(Code::kInvalidOpponent));
         } else {
+            LOG_INFO << "Combatant " << uin << " report fight"
+                << ", opponent_uin = " << opponent_uin
+                << ", loser = " << loser
+                << ", direction = " << direction
+                << ", should_reset_self = " << static_cast<int>(should_reset_self)
+                << ", should_reset_opponent = " << static_cast<int>(should_reset_opponent);
             auto& self = combatant_iter->second;
             auto& opponent = opponent_iter->second;
             self.ClearOpponents(direction);
@@ -766,8 +803,6 @@ namespace SectBattle {
             for (const auto & p : battle_field_) {
                 const Field& field = p.second;
                 auto cell = cached_battle_field_->add_field();
-                cell->mutable_pos()->set_x(p.first.X());
-                cell->mutable_pos()->set_y(p.first.Y());
                 cell->set_owner(static_cast<unsigned>(field.Owner()));
                 cell->set_garrison_num(field.GarrisonNum());
             }

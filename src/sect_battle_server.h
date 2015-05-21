@@ -114,8 +114,8 @@ namespace SectBattle {
             void BackupRoutine(bool force);
             void RecoverRoutine();
 
-            static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
-            //static const int kBackupInterval = 10 * 1000;
+            //static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
+            static const int kBackupInterval = 10 * 1000;
             alpha::EventLoop* loop_;
             std::unique_ptr<ServerConf> conf_;
             std::uniform_int_distribution<int> dist_;

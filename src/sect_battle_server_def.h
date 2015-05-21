@@ -39,6 +39,7 @@ namespace SectBattle {
         kBattleFieldFull = -1009,
         kOpponentInProtection = -1010,
         kCannotMove = -1011,
+        kCannotMoveToBornPos = -1012,
     };
     //战场格子类型
     enum class FieldType {
@@ -93,6 +94,7 @@ namespace SectBattle {
             int16_t X() const { return x_; }
             int16_t Y() const { return y_; }
             bool Valid() const;
+            int64_t HashCode() const; //排序用
             std::pair<Pos, bool> Apply(Direction d) const;
 
         private:
@@ -106,6 +108,7 @@ namespace SectBattle {
     bool operator< (const Pos& lhs, const Pos& rhs);
     bool operator== (const Pos& lhs, const Pos& rhs);
     bool operator!= (const Pos& lhs, const Pos& rhs);
+    std::ostream& operator<<(std::ostream& os, const Pos& pos);
     static_assert (std::is_pod<Pos>::value, "Pos must be POD type");
 
     //战场位置对应的格子
