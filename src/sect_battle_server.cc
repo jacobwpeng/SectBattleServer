@@ -484,8 +484,9 @@ namespace SectBattle {
                     //移动到没人占领，或者是属于本门派的格子
                     if (!can_move) {
                         resp.set_code(static_cast<int>(Code::kCannotMove));
+                    } else {
+                        perform_move_action = true;
                     }
-                    perform_move_action = true;
                 } else {
                     //移动到其它门派的格子，但是刷新不到对手
                     assert (opponents.empty());
@@ -520,6 +521,7 @@ namespace SectBattle {
             } else {
                 //移动到其它门派占领的格子上, 而且能够刷新到对手
                 assert (!opponents.empty());
+                LOG_INFO << "Combatant " << uin << " opponents changed";
                 combatant.ChangeOpponents(direction, opponents);
                 resp.set_code(static_cast<int>(Code::kOccupied));
                 std::copy(opponents.begin(), opponents.end(), 
