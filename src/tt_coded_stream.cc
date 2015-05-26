@@ -65,7 +65,7 @@ namespace tokyotyrant {
 
         *val = *reinterpret_cast<const int32_t*>(buf_);
         Advance(sizeof(int32_t));
-        *val = ::ntohl(*val);
+        *val = ntohl(*val);
         return true;
     }
 
@@ -117,7 +117,7 @@ namespace tokyotyrant {
         if (nbytes < sizeof(int32_t)) {
             return false;
         }
-        auto real_val = ::htonl(val);
+        auto real_val = htonl(val);
         bool ok = codec_->Write(reinterpret_cast<const uint8_t*>(&real_val), 
                 sizeof(real_val));
         assert (ok);

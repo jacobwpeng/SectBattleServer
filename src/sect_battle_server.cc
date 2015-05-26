@@ -95,7 +95,7 @@ namespace SectBattle {
         dispatcher_->Register<ReportFightRequest>(
                 std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
-        //loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
         loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
@@ -874,6 +874,7 @@ namespace SectBattle {
                 return;
             } else if (backup_coroutine_ == nullptr) {
                 LOG_INFO << "Start backup, force = " << (force ? "true" : "false");
+                LOG_INFO << "Last backup time: " << backup_metadata_->EndTime();
                 alpha::NetAddress backup_tt_address(FLAGS_backup_tt_ip, 
                         FLAGS_backup_tt_port);
                 assert (current_backup_prefix_index_ == 0

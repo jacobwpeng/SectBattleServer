@@ -132,7 +132,7 @@ namespace SectBattle {
                 parts = buffer.size() / kMaxValueSize + 1;
             }
             LOG_INFO << "key = " << key << ", buffer.size() = " << buffer.size()
-                << "parts = " << parts;
+                << ", parts = " << parts;
 
             //可以一次性备份的
             if (parts == 0 && !BackupMMapedFilePart(key, data)) {
