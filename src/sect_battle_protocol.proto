@@ -11,14 +11,13 @@ message PBPos {
 }
 
 message PBField {
-    optional PBPos pos = 1;
-    optional uint32 owner = 2;
-    optional uint32 garrison_num = 3;
+    optional uint32 owner = 1;
+    optional uint32 garrison_num = 2;
 }
 
 message BattleField {
     optional PBPos self_position = 1;
-    repeated PBField field = 2;
+    repeated PBField field = 2; //如果还需要再压缩包大小可以把这个拆成两个repeated packed
 }
 
 message QueryBattleFieldRequest {
