@@ -35,11 +35,12 @@ namespace SectBattle {
         kInvalidOpponent = -1005,
         kOpponentMoved = -1006,
         kNoOpponent = -1007,
-        kNoOpponentFound = -1008,
+        kAllGarrisonInProtection = -1008,
         kBattleFieldFull = -1009,
         kOpponentInProtection = -1010,
         kCannotMove = -1011,
         kCannotMoveToBornPos = -1012,
+        kNoGarrisonInField = -1013,
     };
     //战场格子类型
     enum class FieldType {
@@ -79,12 +80,14 @@ namespace SectBattle {
     using LevelType = uint16_t;
     using OpponentList = std::vector<UinType>;
     using CombatantIdentity = std::tuple<LevelType, alpha::TimeStamp, UinType>;
-    using GarrisonSet = std::set<CombatantIdentity>;
+    struct CompareCombatantIdentity {
+        bool operator ()(const CombatantIdentity& lhs, const CombatantIdentity& rhs);
+    };
+    using GarrisonSet = std::set<CombatantIdentity, CompareCombatantIdentity>;
     using GarrisonIterator = GarrisonSet::iterator;
 
     bool IsValidSectType(int type);
     bool IsValidDirection(int d);
-    bool operator < (const CombatantIdentity& lhs, const CombatantIdentity& rhs);
     //战场位置
     class Pos {
         public:

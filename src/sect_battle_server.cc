@@ -95,7 +95,7 @@ namespace SectBattle {
         dispatcher_->Register<ReportFightRequest>(
                 std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
-        loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        //loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
         loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
@@ -492,7 +492,7 @@ namespace SectBattle {
                     assert (opponents.empty());
                     if (new_field.GarrisonNum() != 0) {
                         //有人在却刷不出来对手，说明他们都在保护期
-                        resp.set_code(static_cast<int>(Code::kNoOpponentFound));
+                        resp.set_code(static_cast<int>(Code::kAllGarrisonInProtection));
                     } else if (conf_->GetBornPos(owner) == new_pos) {
                         //虽然没人，但是这是人家出生点
                         resp.set_code(static_cast<int>(Code::kCannotMoveToBornPos));
@@ -609,17 +609,25 @@ namespace SectBattle {
             resp.set_code(static_cast<int>(Code::kNoOpponent));
             return WriteResponse(resp, out);
         }
-        Field& field = CheckGetField(combatant.CurrentPos());
-        auto new_opponents = field.GetOpponents(level, LastTimeNotInProtection());
-        if (new_opponents.empty()) {
-            resp.set_code(static_cast<int>(Code::kNoOpponentFound));
+        auto current_pos = combatant.CurrentPos();
+        auto res = current_pos.Apply(direction);
+        if (!res.second) {
+            resp.set_code(static_cast<int>(Code::kInvalidDirection));
         } else {
-            LOG_INFO << "Combatant " << uin << " opponents changed";
-            combatant.ChangeOpponents(direction, new_opponents);
-            std::copy(new_opponents.begin(), new_opponents.end(), 
-                google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
-            RecordOpponent(uin, direction, new_opponents);
-            resp.set_code(static_cast<int>(Code::kOk));
+            Field& field = CheckGetField(res.first);
+            auto new_opponents = field.GetOpponents(level, LastTimeNotInProtection());
+            if (field.GarrisonNum() == 0) {
+                resp.set_code(static_cast<int>(Code::kNoGarrisonInField));
+            } else if (new_opponents.empty()) {
+                resp.set_code(static_cast<int>(Code::kAllGarrisonInProtection));
+            } else {
+                LOG_INFO << "Combatant " << uin << " opponents changed";
+                combatant.ChangeOpponents(direction, new_opponents);
+                std::copy(new_opponents.begin(), new_opponents.end(), 
+                    google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
+                RecordOpponent(uin, direction, new_opponents);
+                resp.set_code(static_cast<int>(Code::kOk));
+            }
         }
         SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
         return WriteResponse(resp, out);
@@ -722,9 +730,9 @@ namespace SectBattle {
             auto& self = combatant_iter->second;
             auto& opponent = opponent_iter->second;
             self.ClearOpponents(direction);
-            auto expected_opponent_pos = self.CurrentPos();
-            auto res = expected_opponent_pos.Apply(direction);
+            auto res = self.CurrentPos().Apply(direction);
             assert (res.second);
+            auto expected_opponent_pos = res.first;
             assert (opponent.CurrentPos() == expected_opponent_pos);
             (void)res;
 

@@ -65,6 +65,15 @@ namespace SectBattle {
     }
 
     bool ServerConf::InSameSeason(time_t lhs, time_t rhs) const {
+        static const int kOneHourSeconds = 3600;
+        static const int kOneDaySeconds = 24 * kOneHourSeconds;
+        static const int kOneWeekSeconds = 7 * kOneDaySeconds;
+        // CST时区下time_t == 0 为周四早8点
+        // 所以倒退26个小时作为切换时间点
+        static const int kSameSeasonOffset = 26 * kOneHourSeconds;
+        return (lhs + kSameSeasonOffset) / kOneWeekSeconds
+            == (rhs + kSameSeasonOffset) / kOneWeekSeconds;
+#if 0
         auto one = boost::posix_time::from_time_t(lhs);
         one += boost::posix_time::hours(8);
         auto another = boost::posix_time::from_time_t(rhs);
@@ -74,7 +83,10 @@ namespace SectBattle {
         one -= boost::posix_time::hours(3 * 24 + 6);
         another -= boost::posix_time::hours(3 * 24 + 6);
 
+        DLOG_INFO << "one.date().week_number() = " << one.date().week_number()
+            << ", another.date().week_number() = " << another.date().week_number();
         return one.date().week_number() == another.date().week_number();
+#endif
     }
 
     int ServerConf::DefeatedProtectionDuration() const {

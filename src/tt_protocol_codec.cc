@@ -34,7 +34,6 @@ namespace tokyotyrant {
         *consumed = sizeof(int32_t);
         assert (ok);
         (void)ok;
-        LOG_INFO << "*val_ = " << *val_;
         return kOk;
     }
 

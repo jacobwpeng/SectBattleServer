@@ -13,7 +13,6 @@
 #include "sect_battle_server_def.h"
 #include <algorithm>
 #include <alpha/random.h>
-#include <alpha/logger.h>
 
 namespace {
     template<typename T>
@@ -40,24 +39,25 @@ namespace SectBattle {
             && d <= static_cast<int>(Direction::kRight);
     }
 
-    bool operator < (const CombatantIdentity& lhs, const CombatantIdentity& rhs) {
+    bool CompareCombatantIdentity::operator() (const CombatantIdentity& lhs,
+            const CombatantIdentity& rhs) {
         //1.Level小的在前
         //2.TimeStamp大的在前
         //3.Uin小的在前
         int res = Compare(std::get<kCombatantLevel>(lhs), std::get<kCombatantLevel>(rhs));
         if (res != 0) {
-            return res < 0 ? true : false;
+            return res < 0;
         }
 
         res = Compare(std::get<kCombatantDefeatedTimeStamp>(lhs),
                 std::get<kCombatantDefeatedTimeStamp>(rhs));
         if (res != 0) {
-            return res > 0 ? true : false;
+            return res > 0;
         }
 
         res = Compare(std::get<kCombatantUin>(lhs), std::get<kCombatantUin>(rhs));
         if (res != 0) {
-            return res < 0 ? true : false;
+            return res < 0;
         }
         return false;
     }
@@ -203,14 +203,18 @@ namespace SectBattle {
             auto current_search_level = static_cast<int>(level)
                 - current_searching_level_offset;
 
+            bool searching_down_done = false;
             if (current_search_level >= min_searching_level) {
                 auto needs = kMaxOpponents - opponents.size();
                 if (FindOpponentsInLevel(current_search_level, needs, defeated_before,
                             &opponents)) {
                     break;
                 }
+            } else {
+                searching_down_done = true;
             }
 
+            bool searching_up_done = false;
             current_search_level = static_cast<int>(level) + current_searching_level_offset;
             if (current_search_level <= max_searching_level) {
                 auto needs = kMaxOpponents - opponents.size();
@@ -218,6 +222,12 @@ namespace SectBattle {
                             &opponents)) {
                     break;
                 }
+            } else {
+                searching_up_done = true;
+            }
+
+            if (searching_down_done && searching_up_done) {
+                break;
             }
 
             ++current_searching_level_offset;
@@ -247,7 +257,7 @@ namespace SectBattle {
         auto it = garrison_.lower_bound(lower);
         auto last = garrison_.upper_bound(upper);
 
-        //这个等级段没人
+        //这个等级段没人满足条件
         if (it == last) {
             return false;
         }
