@@ -41,6 +41,7 @@ DEFINE_int32(backup_tt_port, 8080, "备份TT的端口");
 DEFINE_int32(battle_field_cache_ttl, 0, "返回给CGI的全局战场信息缓存时间(毫秒)");
 DEFINE_bool(recovery_mode, false, "以恢复模式启动，从备份TT恢复mmap文件\n"
         "注意，使用本选项会覆盖本地所有mmap文件！");
+DEFINE_bool(auto_backup, true, "是否定期将mmap文件备份到TT");
 
 namespace detail {
     std::unique_ptr<google::protobuf::Message> CreateMessage(const std::string& name) {
@@ -95,7 +96,9 @@ namespace SectBattle {
         dispatcher_->Register<ReportFightRequest>(
                 std::bind(&Server::HandleReportFight, this, _1, _2));
         server_.reset (new alpha::UdpServer(loop_));
-        //loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        if (FLAGS_auto_backup) {
+            loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
+        }
         loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
@@ -675,7 +678,7 @@ namespace SectBattle {
         auto it = std::find(opponents.begin(), opponents.end(), opponent_uin);
         if (it == opponents.end()) {
             resp.set_code(static_cast<int>(Code::kInvalidOpponent));
-            //SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
+            SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
             return WriteResponse(resp, out);
         }
 
@@ -683,7 +686,14 @@ namespace SectBattle {
         if (opponent.CurrentPos() != res.first) {
             resp.set_code(static_cast<int>(Code::kOpponentMoved));
         } else {
-            resp.set_code(static_cast<int>(Code::kOk));
+            auto garrison_iterator = opponent.Iterator();
+            auto last_defeated_time = std::get<kCombatantDefeatedTimeStamp>(
+                    *garrison_iterator);
+            if (last_defeated_time > LastTimeNotInProtection()) {
+                resp.set_code(static_cast<int>(Code::kOpponentInProtection));
+            } else {
+                resp.set_code(static_cast<int>(Code::kOk));
+            }
         }
         SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
         return WriteResponse(resp, out);
@@ -732,8 +742,7 @@ namespace SectBattle {
             self.ClearOpponents(direction);
             auto res = self.CurrentPos().Apply(direction);
             assert (res.second);
-            auto expected_opponent_pos = res.first;
-            assert (opponent.CurrentPos() == expected_opponent_pos);
+            assert (opponent.CurrentPos() == res.first);
             (void)res;
 
             if (should_reset_self) {
@@ -876,8 +885,11 @@ namespace SectBattle {
 
     void Server::BackupRoutine(bool force) {
         if (backup_metadata_->EndTime() + kBackupInterval < alpha::Now() || force) {
-            if (backup_coroutine_ && !backup_coroutine_->IsDead()) {
-                LOG_INFO << "Backup coroutine still running, start time = "
+            const int kWaitTimeBeforeWarning = 600 * 1000; //600s in milliseconds
+            if (backup_coroutine_
+                    && !backup_coroutine_->IsDead()
+                    && backup_start_time_ + kWaitTimeBeforeWarning < alpha::Now()) {
+                LOG_WARNING << "Backup coroutine still running, start time = "
                     << backup_start_time_;
                 return;
             } else if (backup_coroutine_ == nullptr) {

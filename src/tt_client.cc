@@ -189,6 +189,18 @@ namespace tokyotyrant {
         return Request(codec.get());
     }
 
+    int Client::Optimize() {
+        if (ConnectionError()) {
+            return kInvalidOperation;
+        }
+        const int16_t kMagic = 0xC871;
+        auto codec = CreateCodec(kMagic);
+        LengthPrefixedEncodeUnit unit("");
+        codec->AddEncodeUnit(&unit);
+
+        return Request(codec.get());
+    }
+
     std::unique_ptr<Iterator> Client::NewIterator() {
         if (ConnectionError()) {
             return nullptr;

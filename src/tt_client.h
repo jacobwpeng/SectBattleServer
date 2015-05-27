@@ -55,49 +55,14 @@ namespace tokyotyrant {
             int Vanish();
             int Get(alpha::Slice key, std::string* val);
             template<typename InputIterator, typename MapType>
-            int MultiGet(InputIterator first, InputIterator last, MapType* map) {
-                if (state_ == ConnectionState::kDisconnected) {
-                    return kInvalidOperation;
-                }
-                const int16_t kMagic = 0xC831;
-                auto codec = CreateCodec(kMagic);
-                int32_t rnum;
-                RepeatedLengthPrefixedEncodeUnit<InputIterator> unit(first, last);
-                Int32DecodeUnit size_decode_unit(&rnum);
-                RepeatedKeyValuePairDecodeUnit<MapType> 
-                    repeated_key_value_pair_decode_unit(&rnum, map);
-                codec->AddEncodeUnit(&unit);
-                codec->AddDecodeUnit(&size_decode_unit);
-                codec->AddDecodeUnit(&repeated_key_value_pair_decode_unit);
-
-                return Request(codec.get());
-            }
+            int MultiGet(InputIterator first, InputIterator last, MapType* map);
             int Stat(std::string* stat);
             int ValueSize(alpha::Slice key, int32_t* size);
             int RecordNumber(int64_t* rnum);
+            int Optimize();
             std::unique_ptr<Iterator> NewIterator();
             template<typename OutputIterator>
-            int GetForwardMatchKeys(alpha::Slice prefix, int32_t max, OutputIterator out) {
-                if (state_ == ConnectionState::kDisconnected) {
-                    return kInvalidOperation;
-                }
-                const int16_t kMagic = 0xC858;
-                auto codec = CreateCodec(kMagic);
-                IntegerEncodeUnit<int32_t> psize_encode_unit(prefix.size());
-                IntegerEncodeUnit<int32_t> max_encode_unit(max);
-                RawDataEncodedUnit prefix_encode_unit(prefix);
-                int32_t knum;
-                Int32DecodeUnit knum_decode_unit(&knum);
-                RepeatedLengthPrefixedDecodeUnit<OutputIterator> 
-                    keys_decode_unit(&knum, out);
-                codec->AddEncodeUnit(&psize_encode_unit);
-                codec->AddEncodeUnit(&max_encode_unit);
-                codec->AddEncodeUnit(&prefix_encode_unit);
-                codec->AddDecodeUnit(&knum_decode_unit);
-                codec->AddDecodeUnit(&keys_decode_unit);
-
-                return Request(codec.get());
-            }
+            int GetForwardMatchKeys(alpha::Slice prefix, int32_t max, OutputIterator out);
 
         private:
             enum class ConnectionState {
@@ -145,6 +110,48 @@ namespace tokyotyrant {
             int status_ = kSuccess;
             std::string key_;
     };
+
+    template<typename InputIterator, typename MapType>
+    int Client::MultiGet(InputIterator first, InputIterator last, MapType* map) {
+        if (state_ == ConnectionState::kDisconnected) {
+            return kInvalidOperation;
+        }
+        const int16_t kMagic = 0xC831;
+        auto codec = CreateCodec(kMagic);
+        int32_t rnum;
+        RepeatedLengthPrefixedEncodeUnit<InputIterator> unit(first, last);
+        Int32DecodeUnit size_decode_unit(&rnum);
+        RepeatedKeyValuePairDecodeUnit<MapType> 
+            repeated_key_value_pair_decode_unit(&rnum, map);
+        codec->AddEncodeUnit(&unit);
+        codec->AddDecodeUnit(&size_decode_unit);
+        codec->AddDecodeUnit(&repeated_key_value_pair_decode_unit);
+
+        return Request(codec.get());
+    }
+
+    template<typename OutputIterator>
+    int Client::GetForwardMatchKeys(alpha::Slice prefix, int32_t max, OutputIterator out) {
+        if (state_ == ConnectionState::kDisconnected) {
+            return kInvalidOperation;
+        }
+        const int16_t kMagic = 0xC858;
+        auto codec = CreateCodec(kMagic);
+        IntegerEncodeUnit<int32_t> psize_encode_unit(prefix.size());
+        IntegerEncodeUnit<int32_t> max_encode_unit(max);
+        RawDataEncodedUnit prefix_encode_unit(prefix);
+        int32_t knum;
+        Int32DecodeUnit knum_decode_unit(&knum);
+        RepeatedLengthPrefixedDecodeUnit<OutputIterator> 
+            keys_decode_unit(&knum, out);
+        codec->AddEncodeUnit(&psize_encode_unit);
+        codec->AddEncodeUnit(&max_encode_unit);
+        codec->AddEncodeUnit(&prefix_encode_unit);
+        codec->AddDecodeUnit(&knum_decode_unit);
+        codec->AddDecodeUnit(&keys_decode_unit);
+
+        return Request(codec.get());
+    }
 }
 
 #endif   /* ----- #ifndef __TT_CLIENT_H__  ----- */

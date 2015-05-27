@@ -50,6 +50,18 @@ namespace SectBattle {
         while (!client_->Connected()) {
             Yield();
         }
+        static int backup_times = 0;
+        if (backup_times && backup_times % 4 == 0) {
+            //TT好挫居然不会自己压缩占用的文件大小，只好我们手动来了
+            LOG_INFO << "Do optimize, backup_times = " << backup_times;
+            int err = client_->Optimize();
+            LOG_INFO_IF(err == 0) << "Optimize done";
+            if (err) {
+                LOG_ERROR << "Optimize failed, err = " << err;
+                return;
+            }
+        }
+
         auto now  = alpha::Now();
         if (connect_start_time + kDataExpireTime < now) {
             LOG_WARNING << "Backup data expired";
@@ -72,6 +84,7 @@ namespace SectBattle {
             return;
         }
 
+        ++backup_times;
         succeed_ = true;
         *backup_metadata_ = *md;
         LOG_INFO << "Backup done, prefix = " << backup_prefix_;
