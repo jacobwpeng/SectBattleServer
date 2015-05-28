@@ -41,6 +41,7 @@ namespace SectBattle {
         kCannotMove = -1011,
         kCannotMoveToBornPos = -1012,
         kNoGarrisonInField = -1013,
+        kTooFarFromDestination = -1014,
     };
     //战场格子类型
     enum class FieldType {
