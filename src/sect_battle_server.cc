@@ -261,6 +261,7 @@ namespace SectBattle {
             auto res = combatants_.emplace(std::piecewise_construct,
                     std::forward_as_tuple(uin),
                     std::forward_as_tuple(&sect, lite.pos, combatant_iter));
+            sect.AddMember(uin);
             assert (res.second);
             (void)res;
         }
@@ -447,13 +448,23 @@ namespace SectBattle {
         if (unlikely(!req->has_uin() 
                     || !req->has_level()
                     || !req->has_direction()
-                    || !req->has_can_move())) {
+                    || !req->has_can_move())
+                    || !req->has_destination()) {
             return -1;
         }
 
         if (unlikely(!IsValidDirection(req->direction()))) {
             return -2;
         }
+
+        if (unlikely(req->destination().x() < 0
+                    || req->destination().x() > Pos::kMaxPos
+                    || req->destination().y() < 0
+                    || req->destination().y() > Pos::kMaxPos)) {
+            return -3;
+        }
+
+        auto destination = Pos::Create(req->destination().x(), req->destination().y());
 
         MoveResponse resp;
         const UinType uin = req->uin();
@@ -470,12 +481,17 @@ namespace SectBattle {
         auto current_pos = combatant.CurrentPos();
         auto direction = static_cast<Direction>(req->direction());
         auto res = current_pos.Apply(direction);
+        Pos final_pos = current_pos;
         if (!res.second) {
             //再移动就要出界了
-            DLOG_INFO << "current_pos.x = " << current_pos.X()
-                << ", current_pos.y = " << current_pos.Y()
+            DLOG_INFO << "current pos = " << current_pos
                 << ", direction = " << direction;
             resp.set_code(static_cast<int>(Code::kInvalidDirection));
+        } else if (res.first != destination) {
+            DLOG_INFO << "current pos = " << current_pos
+                << ", expected destination = " << res.first
+                << ", destination from client = " << destination;
+            resp.set_code(static_cast<int>(Code::kTooFarFromDestination));
         } else {
             auto new_pos = res.first;
             Field& new_field = CheckGetField(new_pos);
@@ -487,7 +503,6 @@ namespace SectBattle {
                 //移动到其它门派占领的格子, 而这个方向又没有刷新过对手，生成一下对手
                 opponents = new_field.GetOpponents(req->level(), LastTimeNotInProtection());
             }
-            bool pos_changed = false;
             //几种可能可以移动的情况
             if (owner == SectType::kNone
                     || owner == combatant.CurrentSect()->Type()
@@ -528,7 +543,7 @@ namespace SectBattle {
                     //更新玩家的位置
                     MoveCombatant(uin, req->level(), &combatant, new_pos);
                     resp.set_code(static_cast<int>(Code::kOk));
-                    pos_changed = true;
+                    final_pos = new_pos;
                     RecordSect(new_pos, combatant.CurrentSect()->Type());
                 }
             } else {
@@ -541,9 +556,8 @@ namespace SectBattle {
                     google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
                 RecordOpponent(uin, direction, opponents);
             }
-            SetBattleField(pos_changed ? new_pos : current_pos, 
-                    resp.mutable_battle_field());
         }
+        SetBattleField(final_pos, resp.mutable_battle_field());
         return WriteResponse(resp, out);
     }
 

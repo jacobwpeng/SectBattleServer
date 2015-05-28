@@ -48,6 +48,7 @@ message MoveRequest {
     optional uint32 level = 2;
     optional uint32 direction = 3;
     optional bool can_move = 4;
+    optional PBPos destination = 5;
 }
 
 message MoveResponse {
