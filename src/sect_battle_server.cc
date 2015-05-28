@@ -407,7 +407,7 @@ namespace SectBattle {
             return WriteResponse(resp, out);
         } else {
             const auto sect_type = RandomSect();
-            LOG_INFO << "Combatant" << uin << " join battle"
+            LOG_INFO << "Combatant " << uin << " join battle"
                 << ", sect = " << sect_type
                 << ", level = " << level;
 
