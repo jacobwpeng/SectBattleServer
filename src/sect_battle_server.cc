@@ -13,6 +13,7 @@
 #include "sect_battle_server.h"
 
 #include <limits.h>
+#include <sstream>
 #include <functional>
 #include <google/protobuf/descriptor.h>
 #include <gflags/gflags.h>
@@ -23,6 +24,7 @@
 #include <alpha/net_address.h>
 #include <alpha/mmap_file.h>
 #include <alpha/random.h>
+#include <alpha/simple_http_server.h>
 #include "tt_client.h"
 
 #include "sect_battle_protocol.pb.h"
@@ -31,12 +33,15 @@
 #include "sect_battle_backup_coroutine.h"
 #include "sect_battle_recover_coroutine.h"
 #include "sect_battle_server_conf.h"
+#include "sect_battle_inspector.h"
 
 DEFINE_string(conf_path, "sect_battle_svrd.conf", "战场信息配置文件路径");
 DEFINE_string(data_path, "/tmp", "mmap文件存放路径");
-DEFINE_string(bind_ip, "0.0.0.0", "服务器监听的本地ip地址");
+DEFINE_string(bind_ip, "0.0.0.0", "服务器监听的本地IP地址");
 DEFINE_int32(bind_port, 9123, "服务器监听的本地端口");
-DEFINE_string(backup_tt_ip, "127.0.0.1", "备份TT的ip地址");
+DEFINE_string(admin_server_bind_ip, "0.0.0.0", "管理服务器监听的IP地址");
+DEFINE_int32(admin_server_bind_port, 9124, "管理服务器监听的端口");
+DEFINE_string(backup_tt_ip, "127.0.0.1", "备份TT的IP地址");
 DEFINE_int32(backup_tt_port, 8080, "备份TT的端口");
 DEFINE_int32(battle_field_cache_ttl, 0, "返回给CGI的全局战场信息缓存时间(毫秒)");
 DEFINE_bool(recovery_mode, false, "以恢复模式启动，从备份TT恢复mmap文件\n"
@@ -121,7 +126,12 @@ namespace SectBattle {
         LOG_INFO << "opponent_map_->max_size() = " << opponent_map_->max_size();
         //只对加入战场做了限制，所以记录对手的map的上限要大于等于战场人数上限
         assert (opponent_map_->max_size() >= combatant_map_->max_size());
-        return server_->Start(addr, std::bind(&Server::HandleMessage, this, _1, _2));
+
+        inspector_.reset (new Inspector());
+        admin_server_.reset (new alpha::SimpleHTTPServer(loop_, alpha::NetAddress(
+                        FLAGS_admin_server_bind_ip, FLAGS_admin_server_bind_port)));
+        return server_->Start(addr, std::bind(&Server::HandleMessage, this, _1, _2))
+            && admin_server_->Run();
     }
     
     bool Server::RunRecovery() {

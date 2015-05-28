@@ -1,2 +1,4 @@
 build/
 *.pyc
+src/sect_battle_protocol.pb.cc
+src/sect_battle_protocol.pb.h

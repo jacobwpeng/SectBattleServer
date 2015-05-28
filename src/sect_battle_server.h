@@ -20,6 +20,7 @@
 #include <alpha/logger.h>
 #include <alpha/skip_list.h>
 #include <alpha/time_util.h>
+#include <alpha/tcp_connection.h>
 
 #include "sect_battle_server_def.h"
 
@@ -33,6 +34,8 @@ namespace alpha {
     class MMapFile;
     class EventLoop;
     class UdpServer;
+    class SimpleHTTPServer;
+    class HTTPMessage;
 }
 
 namespace tokyotyrant {
@@ -65,6 +68,7 @@ namespace SectBattle {
     class RecoverCoroutine;
     class BackupMetadata;
     class ServerConf;
+    class Inspector;
     class Server {
         public:
             Server(alpha::EventLoop* loop);
@@ -114,6 +118,14 @@ namespace SectBattle {
             void BackupRoutine(bool force);
             void RecoverRoutine();
 
+            //服务器状态和管理
+            void AdminServerCallback(alpha::TcpConnectionPtr,
+                    const alpha::HTTPMessage& message);
+            std::string ServerStatus();
+            std::string FieldStatus(Pos pos);
+            std::string PlayerStatus(UinType uin);
+            std::string AdminServerUsage() const;
+
             //static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
             static const int kBackupInterval = 10 * 1000;
             alpha::EventLoop* loop_;
@@ -129,6 +141,8 @@ namespace SectBattle {
             std::unique_ptr<BackupCoroutine> backup_coroutine_;
             std::unique_ptr<RecoverCoroutine> recover_coroutine_;
             std::unique_ptr<BattleField> cached_battle_field_;
+            std::unique_ptr<Inspector> inspector_;
+            std::unique_ptr<alpha::SimpleHTTPServer> admin_server_;
             BackupMetadata* backup_metadata_ = nullptr;
             int current_backup_prefix_index_ = 0;
             alpha::TimeStamp backup_start_time_ = 0;
