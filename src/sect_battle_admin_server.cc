@@ -38,6 +38,7 @@ namespace SectBattle {
                 UinType uin = std::stoul(message.Params().at("uin"));
                 conn->Write(PlayerStatus(uin));
             } else {
+                conn->Write(AdminServerUsage());
             }
         } catch(std::invalid_argument& e) {
             conn->Write(AdminServerUsage());
@@ -76,6 +77,7 @@ namespace SectBattle {
         pt.put("ErrorLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelError));
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
+        LOG_INFO << oss.str().size();
         return oss.str();
     }
 
@@ -104,7 +106,7 @@ namespace SectBattle {
         auto & identity = *combatant.Iterator();
         pt.put("Level", std::get<kCombatantLevel>(identity));
         pt.put("LastDefeatedTime", std::get<kCombatantDefeatedTimeStamp>(identity));
-        pt.put("Uin", std::get<kCombatantDefeatedTimeStamp>(identity));
+        pt.put("Uin", std::get<kCombatantUin>(identity));
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
         return oss.str();
@@ -116,16 +118,17 @@ namespace SectBattle {
         boost::property_tree::ptree usage;
         std::vector<std::string> usages = {
             "curl host:port/path",
-            "path = player?uin=2191195 获取玩家对应的信息",
-            "path = status 获取服务器状态",
-            "path = field?x=1&y=1 获取指定格子的状态",
-            "path = [default] 显示Usage"
+            "get player info, path = player?uin=2191195",
+            "get server status, path = status",
+            "get field info, path = field?x=1&y=1",
+            "usage, path = [default]"
         };
         for (const auto& msg : usages) {
             boost::property_tree::ptree array_element;
             array_element.put_value(msg);
             usage.push_back(std::make_pair("", array_element));
         }
+        pt.add_child("usage", usage);
 
         boost::property_tree::write_json(oss, pt);
         return oss.str();

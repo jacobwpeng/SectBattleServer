@@ -13,6 +13,7 @@
 #include "sect_battle_inspector.h"
 #include <cstring> //memset
 #include <algorithm>
+#include <alpha/logger.h>
 
 namespace SectBattle {
     const int Inspector::kMaxSampleSeconds;
@@ -46,14 +47,15 @@ namespace SectBattle {
     }
 
     int32_t Inspector::SampleRequests(int latest_seconds) const {
-        return Sample(&requests_[0], latest_seconds);
+        return Sample(requests_, latest_seconds);
     }
 
     int32_t Inspector::SampleSucceedRequests(int latest_seconds) const {
-        return Sample(&succeed_requests_[0], latest_seconds);
+        return Sample(succeed_requests_, latest_seconds);
     }
 
     int32_t Inspector::AverageProcessTime() const {
+        if (total_requests_.first == 0) return 0;
         return static_cast<double>(total_requests_.second) / total_requests_.first;
     }
 
@@ -63,19 +65,18 @@ namespace SectBattle {
 
     int32_t Inspector::Sample(const int32_t* array, int latest_seconds) const {
         latest_seconds = std::min(latest_seconds, kMaxSampleSeconds);
-        alpha::TimeStamp now = time(nullptr);
-        auto start = now - latest_seconds;
+        alpha::TimeStamp now = alpha::Now();
+        auto start = now - latest_seconds * alpha::kMilliSecondsPerSecond;
         auto index = TimeStampToIndex(start);
-        uint64_t sum = 0;
+        int32_t sum = 0;
         for (auto i = 0; i < latest_seconds; ++i) {
             sum += array[index];
             index = (index + 1 == kMaxSampleSeconds) ? 0 : index + 1;
         }
-        int32_t average = static_cast<double>(sum) / latest_seconds;
-        return average;
+        return sum;
     }
 
     int Inspector::TimeStampToIndex(alpha::TimeStamp timestamp) const {
-        return timestamp % kMaxSampleSeconds;
+        return (timestamp / alpha::kMilliSecondsPerSecond) % kMaxSampleSeconds;
     }
 }

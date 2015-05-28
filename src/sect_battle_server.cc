@@ -128,8 +128,10 @@ namespace SectBattle {
         assert (opponent_map_->max_size() >= combatant_map_->max_size());
 
         inspector_.reset (new Inspector());
+        inspector_->RecordProcessStartTime(alpha::Now());
         admin_server_.reset (new alpha::SimpleHTTPServer(loop_, alpha::NetAddress(
                         FLAGS_admin_server_bind_ip, FLAGS_admin_server_bind_port)));
+        admin_server_->SetCallback(std::bind(&Server::AdminServerCallback, this, _1, _2));
         return server_->Start(addr, std::bind(&Server::HandleMessage, this, _1, _2))
             && admin_server_->Run();
     }
@@ -264,11 +266,13 @@ namespace SectBattle {
             sect.AddMember(uin);
             assert (res.second);
             (void)res;
+            LOG_INFO << "Recover combatant, uin = " << uin;
         }
 
         //恢复玩家的对手信息
         for (auto it = opponent_map_->begin(); it != opponent_map_->end(); ++it) {
             UinType uin = it->first;
+            LOG_INFO << "CheckGetCombatant, uin = " << uin;
             Combatant& combatant = CheckGetCombatant(uin);
             for (int i = static_cast<int>(Direction::kUp);
                     i <= static_cast<int>(Direction::kDown);
@@ -333,6 +337,8 @@ namespace SectBattle {
     }
 
     ssize_t Server::HandleMessage(alpha::Slice packet, char* out) {
+        auto start = alpha::Now();
+        inspector_->AddRequestNum(start);
         SectBattle::ProtocolMessage wrapper;
         if (!wrapper.ParseFromArray(packet.data(), packet.size())) {
             LOG_WARNING << "Invalid packet, packet.size() = " << packet.size();
@@ -351,8 +357,14 @@ namespace SectBattle {
         }
 
         auto ret = dispatcher_->Dispatch(m.get(), out);
-        LOG_INFO_IF(ret < 0) << "Process failed, message_name = " << wrapper.name()
-            << ", ret = " << ret;
+        auto end = alpha::Now();
+        if (ret >= 0) {
+            inspector_->AddSucceedRequestNum(end);
+        } else {
+            LOG_INFO << "Process failed, message_name = " << wrapper.name()
+                << ", ret = " << ret;
+        }
+        inspector_->RecordProcessRequestTime(end - start);
         return ret;
     }
 
@@ -822,6 +834,7 @@ namespace SectBattle {
     }
 
     void Server::RecordOpponent(UinType uin, Direction d, const OpponentList& opponents) {
+        assert (uin != 0);
         auto it = opponent_map_->find(uin);
         if (it == opponent_map_->end()) {
             auto p = opponent_map_->insert(std::make_pair(uin, OpponentLite::Default()));
