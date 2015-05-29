@@ -13,7 +13,6 @@
 #ifndef  __SECT_BATTLE_SERVER_H__
 #define  __SECT_BATTLE_SERVER_H__
 
-#include <random>
 #include <memory>
 #include <string>
 #include <alpha/slice.h>
@@ -125,12 +124,12 @@ namespace SectBattle {
             std::string FieldStatus(Pos pos);
             std::string PlayerStatus(UinType uin);
             std::string AdminServerUsage() const;
+            void ForceBackup();
 
-            //static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
-            static const int kBackupInterval = 10 * 1000;
+            static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
+            //static const int kBackupInterval = 10 * 1000;
             alpha::EventLoop* loop_;
             std::unique_ptr<ServerConf> conf_;
-            std::uniform_int_distribution<int> dist_;
             std::unique_ptr<alpha::UdpServer> server_;
             std::unique_ptr<MessageDispatcher> dispatcher_;
             MMapedFileMap mmaped_files_;

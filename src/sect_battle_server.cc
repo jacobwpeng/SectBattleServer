@@ -905,10 +905,6 @@ namespace SectBattle {
     }
 
     void Server::ResetBattleField() {
-        //由于mmaped下来的skiplist依赖于alpha::MemoryList
-        //而MemoryList是双链表实现，所以clear的时候会重建这两个双链表
-        //这样要遍历整个文件，所以性能严重依赖于是否把mmaped文件放在tmpfs中
-        LOG_INFO << "ResetBattleField start";
         battle_field_.clear();
         sects_.clear();
         combatants_.clear();

@@ -17,6 +17,8 @@
 #include <alpha/http_message.h>
 #include <alpha/http_response_builder.h>
 #include "sect_battle_inspector.h"
+#include "sect_battle_backup_metadata.h"
+#include "sect_battle_backup_coroutine.h"
 
 namespace SectBattle {
     void Server::AdminServerCallback(alpha::TcpConnectionPtr conn,
@@ -51,16 +53,25 @@ namespace SectBattle {
                 auto reply = PlayerStatus(uin);
                 alpha::HTTPResponseBuilder builder(conn);
                 builder.AddHeader("Server", "alpha::SimpleHTTPServer")
-                    .AddHeader("Connection", "close")
-                    .AddHeader("Content-Type", "application/json");
+                    .AddHeader("Connection", "close");
                 if (reply.empty()) {
-                    builder.status(404, "Not Found");
-                    builder.body(alpha::Slice("Not Found\n"));
+                    builder.status(404, "Not Found")
+                    .AddHeader("Content-Type", "text/plain")
+                    .body(alpha::Slice("Not Found\n"));
                 } else {
-                    builder.status(200, "OK");
-                    builder.body(std::move(reply));
+                    builder.status(200, "OK")
+                    .AddHeader("Content-Type", "application/json")
+                    .body(std::move(reply));
                 }
                 builder.SendWithEOM();
+                return;
+            } else if (path == "/forcebackup") {
+                ForceBackup();
+                alpha::HTTPResponseBuilder(conn)
+                    .status(200, "OK")
+                    .AddHeader("Server", "alpha::SimpleHTTPServer")
+                    .AddHeader("Connection", "close")
+                    .SendWithEOM();
                 return;
             } else {
             }
@@ -104,6 +115,12 @@ namespace SectBattle {
         pt.put("InfoLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelInfo));
         pt.put("WarnLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelWarning));
         pt.put("ErrorLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelError));
+        pt.put("BackupStatus", backup_coroutine_ && !backup_coroutine_->IsDead() ? 1 : 0);
+        pt.put("BackupEndTime", backup_metadata_->EndTime());
+        pt.put("BackupPrefixIndex", current_backup_prefix_index_);
+        pt.put("LastBattleFieldResetTime",
+                backup_metadata_->LatestBattleFieldResetTime());
+        pt.put("CombatantsNum", combatants_.size());
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
         LOG_INFO << oss.str().size();
@@ -150,6 +167,7 @@ namespace SectBattle {
             "get player info, path = player?uin=2191195",
             "get server status, path = status",
             "get field info, path = field?x=1&y=1",
+            "force backup, path = forcebackup",
             "usage, path = [default]"
         };
         for (const auto& msg : usages) {
@@ -161,5 +179,9 @@ namespace SectBattle {
 
         boost::property_tree::write_json(oss, pt);
         return oss.str();
+    }
+
+    void Server::ForceBackup() {
+        BackupRoutine(true);
     }
 }
