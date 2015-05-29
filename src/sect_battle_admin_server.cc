@@ -11,10 +11,11 @@
  */
 
 #include "sect_battle_server.h"
-#include <alpha/logger.h>
-#include <alpha/http_message.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <alpha/logger.h>
+#include <alpha/http_message.h>
+#include <alpha/http_response_builder.h>
 #include "sect_battle_inspector.h"
 
 namespace SectBattle {
@@ -23,28 +24,56 @@ namespace SectBattle {
         auto path = message.Path();
         try {
             if (path == "/status") {
-                conn->Write(ServerStatus());
+                alpha::HTTPResponseBuilder(conn)
+                    .status(200, "OK")
+                    .AddHeader("Server", "alpha::SimpleHTTPServer")
+                    .AddHeader("Connection", "close")
+                    .AddHeader("Content-Type", "application/json")
+                    .body(ServerStatus())
+                    .SendWithEOM();
                 return;
             } else if (path == "/field") {
                 auto x = std::stoul(message.Params().at("x"));
                 auto y = std::stoul(message.Params().at("y"));
                 if (x <= Pos::kMaxPos && y <= Pos::kMaxPos) {
                     auto pos = Pos::Create(x, y);
-                    conn->Write(FieldStatus(pos));
-                } else {
-                    conn->Write(AdminServerUsage());
+                    alpha::HTTPResponseBuilder(conn)
+                        .status(200, "OK")
+                        .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Connection", "close")
+                        .AddHeader("Content-Type", "application/json")
+                        .body(FieldStatus(pos))
+                        .SendWithEOM();
+                    return;
                 }
             } else if (path == "/player") {
                 UinType uin = std::stoul(message.Params().at("uin"));
-                conn->Write(PlayerStatus(uin));
+                auto reply = PlayerStatus(uin);
+                alpha::HTTPResponseBuilder builder(conn);
+                builder.AddHeader("Server", "alpha::SimpleHTTPServer")
+                    .AddHeader("Connection", "close")
+                    .AddHeader("Content-Type", "application/json");
+                if (reply.empty()) {
+                    builder.status(404, "Not Found");
+                    builder.body(alpha::Slice("Not Found\n"));
+                } else {
+                    builder.status(200, "OK");
+                    builder.body(std::move(reply));
+                }
+                builder.SendWithEOM();
+                return;
             } else {
-                conn->Write(AdminServerUsage());
             }
         } catch(std::invalid_argument& e) {
-            conn->Write(AdminServerUsage());
         } catch(std::out_of_range& e) {
-            conn->Write(AdminServerUsage());
         }
+        alpha::HTTPResponseBuilder(conn)
+            .status(400, "Bad Request")
+            .AddHeader("Server", "alpha::SimpleHTTPServer")
+            .AddHeader("Connection", "close")
+            .AddHeader("Content-Type", "application/json")
+            .body(AdminServerUsage())
+            .SendWithEOM();
     }
 
     std::string Server::ServerStatus() {
