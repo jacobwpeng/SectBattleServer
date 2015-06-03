@@ -16,11 +16,47 @@
 #include <alpha/logger.h>
 
 namespace SectBattle {
-    const int Inspector::kMaxSampleSeconds;
-    Inspector::Inspector()
-        :max_request_process_time_(0) {
-        ::memset(requests_, 0x0, sizeof(requests_));
-        ::memset(succeed_requests_, 0x0, sizeof(succeed_requests_));
+    const int PeriodStatisticQueue::kMaxSampleSeconds;
+
+    void PeriodStatisticQueue::Add(alpha::TimeStamp time) {
+        RemoveOutdated(time);
+        statistics_[TimeStampToSeconds(time)]++;
+    }
+
+    int32_t PeriodStatisticQueue::SampleAverage(alpha::TimeStamp now, int seconds) const {
+        seconds = std::min(seconds, kMaxSampleSeconds);
+        auto now_seconds = TimeStampToSeconds(now);
+        int average = 0;
+        std::for_each(statistics_.lower_bound(now_seconds - seconds + 1),
+                statistics_.upper_bound(now_seconds),
+                [&average](const std::pair<int, int>& p) {
+                average += p.second;
+        });
+        return average;
+    }
+
+    int PeriodStatisticQueue::TimeStampToSeconds(alpha::TimeStamp time) const {
+        return time / 1000;
+    }
+
+    void PeriodStatisticQueue::RemoveOutdated(alpha::TimeStamp latest) {
+        auto preserved = TimeStampToSeconds(latest) - kMaxSampleSeconds;
+        if (statistics_.empty() || statistics_.begin()->first >= preserved) {
+            return;
+        }
+
+        auto first = statistics_.begin();
+        auto last = statistics_.lower_bound(preserved);
+        if (last != statistics_.end() && last->first == preserved) {
+            if (last != statistics_.end()) {
+                ++last;
+            }
+        }
+
+        statistics_.erase(first, last);
+    }
+
+    Inspector::Inspector() {
     }
 
     void Inspector::RecordProcessStartTime(alpha::TimeStamp timestamp) {
@@ -28,11 +64,11 @@ namespace SectBattle {
     }
 
     void Inspector::AddRequestNum(alpha::TimeStamp timestamp) {
-        requests_[TimeStampToIndex(timestamp)]++;
+        requests_.Add(timestamp);
     }
 
     void Inspector::AddSucceedRequestNum(alpha::TimeStamp timestamp) {
-        succeed_requests_[TimeStampToIndex(timestamp)]++;
+        succeed_requests_.Add(timestamp);
     }
 
     void Inspector::RecordProcessRequestTime(int milliseconds) {
@@ -41,17 +77,18 @@ namespace SectBattle {
         max_request_process_time_ = std::max(milliseconds, max_request_process_time_);
     }
 
-    int32_t Inspector::RequestProcessedPerSeconds() const {
-        int32_t sum = std::accumulate(std::begin(requests_), std::end(requests_), 0);
-        return static_cast<double>(sum) / kMaxSampleSeconds;
+    double Inspector::RequestProcessedPerSeconds() const {
+        auto sum = requests_.SampleAverage(alpha::Now(),
+                PeriodStatisticQueue::kMaxSampleSeconds);
+        return static_cast<double>(sum) / PeriodStatisticQueue::kMaxSampleSeconds;
     }
 
     int32_t Inspector::SampleRequests(int latest_seconds) const {
-        return Sample(requests_, latest_seconds);
+        return requests_.SampleAverage(alpha::Now(), latest_seconds);
     }
 
     int32_t Inspector::SampleSucceedRequests(int latest_seconds) const {
-        return Sample(succeed_requests_, latest_seconds);
+        return succeed_requests_.SampleAverage(alpha::Now(), latest_seconds);
     }
 
     int32_t Inspector::AverageProcessTime() const {
@@ -61,22 +98,5 @@ namespace SectBattle {
 
     alpha::TimeStamp Inspector::ProcessStartTime() const {
         return process_start_time_;
-    }
-
-    int32_t Inspector::Sample(const int32_t* array, int latest_seconds) const {
-        latest_seconds = std::min(latest_seconds, kMaxSampleSeconds);
-        alpha::TimeStamp now = alpha::Now();
-        auto start = now - latest_seconds * alpha::kMilliSecondsPerSecond;
-        auto index = TimeStampToIndex(start);
-        int32_t sum = 0;
-        for (auto i = 0; i < latest_seconds; ++i) {
-            sum += array[index];
-            index = (index + 1 == kMaxSampleSeconds) ? 0 : index + 1;
-        }
-        return sum;
-    }
-
-    int Inspector::TimeStampToIndex(alpha::TimeStamp timestamp) const {
-        return (timestamp / alpha::kMilliSecondsPerSecond) % kMaxSampleSeconds;
     }
 }

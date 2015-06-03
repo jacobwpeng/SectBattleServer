@@ -73,6 +73,40 @@ namespace SectBattle {
                     .AddHeader("Connection", "close")
                     .SendWithEOM();
                 return;
+            } else if (path == "/sect") {
+                unsigned sect = std::stoul(message.Params().at("type"));
+                if (IsValidSectType(sect)) {
+                    alpha::HTTPResponseBuilder(conn)
+                        .status(200, "OK")
+                        .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Connection", "close")
+                        .AddHeader("Content-Type", "application/json")
+                        .body(SectStatus(static_cast<SectType>(sect)))
+                        .SendWithEOM();
+                    return;
+                }
+            } else if (path == "/removeplayer") {
+                UinType uin = std::stoul(message.Params().at("uin"));
+                auto it = combatants_.find(uin);
+                if (it == combatants_.end()) {
+                    alpha::HTTPResponseBuilder(conn)
+                        .status(404, "Not Found")
+                        .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Connection", "close")
+                        .AddHeader("Content-Type", "text/plain")
+                        .body(alpha::Slice("Not Found\n"))
+                        .SendWithEOM();
+                } else {
+                    RemoveCombatant(uin);
+                    alpha::HTTPResponseBuilder(conn)
+                        .status(200, "OK")
+                        .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Connection", "close")
+                        .AddHeader("Content-Type", "text/plain")
+                        .body(alpha::Slice("Done\n"))
+                        .SendWithEOM();
+                }
+                return;
             } else {
             }
         } catch(std::invalid_argument& e) {
@@ -115,6 +149,7 @@ namespace SectBattle {
         pt.put("InfoLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelInfo));
         pt.put("WarnLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelWarning));
         pt.put("ErrorLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelError));
+        pt.put("CurrentTime", alpha::Now());
         pt.put("BackupStatus", backup_coroutine_ && !backup_coroutine_->IsDead() ? 1 : 0);
         pt.put("BackupEndTime", backup_metadata_->EndTime());
         pt.put("BackupPrefixIndex", current_backup_prefix_index_);
@@ -133,6 +168,16 @@ namespace SectBattle {
         boost::property_tree::ptree pt;
         pt.put("owner", field.Owner());
         pt.put("garrison_num", field.GarrisonNum());
+        std::ostringstream oss;
+        boost::property_tree::write_json(oss, pt);
+        return oss.str();
+    }
+
+    std::string Server::SectStatus(SectType sect_type) {
+        auto & sect = CheckGetSect(sect_type);
+        boost::property_tree::ptree pt;
+        pt.put("Sect", sect.Type());
+        pt.put("MembersCount", sect.MemberCount());
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
         return oss.str();
@@ -167,7 +212,9 @@ namespace SectBattle {
             "get player info, path = player?uin=2191195",
             "get server status, path = status",
             "get field info, path = field?x=1&y=1",
+            "get sect info, path = sect?type=1",
             "force backup, path = forcebackup",
+            "remove player, path = removeplayer?uin=2191195",
             "usage, path = [default]"
         };
         for (const auto& msg : usages) {
@@ -183,5 +230,16 @@ namespace SectBattle {
 
     void Server::ForceBackup() {
         BackupRoutine(true);
+    }
+
+    void Server::RemoveCombatant(UinType uin) {
+        auto & combatant = CheckGetCombatant(uin);
+        auto & field = CheckGetField(combatant.CurrentPos());
+        field.ReduceGarrison(uin, combatant.Iterator());
+        auto & sect = CheckGetSect(combatant.CurrentSect()->Type());
+        sect.RemoveMember(uin);
+        combatants_.erase(uin);
+        combatant_map_->erase(uin);
+        opponent_map_->erase(uin);
     }
 }

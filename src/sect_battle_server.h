@@ -122,9 +122,11 @@ namespace SectBattle {
                     const alpha::HTTPMessage& message);
             std::string ServerStatus();
             std::string FieldStatus(Pos pos);
+            std::string SectStatus(SectType sect);
             std::string PlayerStatus(UinType uin);
             std::string AdminServerUsage() const;
             void ForceBackup();
+            void RemoveCombatant(UinType uin);
 
             static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
             //static const int kBackupInterval = 10 * 1000;

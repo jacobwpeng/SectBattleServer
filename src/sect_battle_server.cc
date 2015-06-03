@@ -788,7 +788,10 @@ namespace SectBattle {
                 MoveCombatant(opponent_uin, req->opponent_level(), &opponent,
                         opponent.CurrentSect()->BornPos());
             }
-            RecordCombatantDefeatedTime(loser);
+            if (loser == opponent_uin) {
+                //对手被击败才会进入保护期
+                RecordCombatantDefeatedTime(loser);
+            }
             SetBattleField(self.CurrentPos(), resp.mutable_battle_field());
         }
         return WriteResponse(resp, out);
