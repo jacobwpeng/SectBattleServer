@@ -160,7 +160,7 @@ namespace SectBattle {
                     if (!BackupMMapedFilePart(part_key, part_data)) {
                         return false;
                     } else {
-                        data = data.RemovePrefix(std::min(kMaxValueSize, data.size()));
+                        data.Advance(std::min(kMaxValueSize, data.size()));
                     }
                 }
                 assert (data.empty());

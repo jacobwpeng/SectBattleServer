@@ -131,7 +131,7 @@ namespace tokyotyrant {
         if (!data_.empty()) {
             auto size = data_.size();
             auto nbytes = stream->WriteRaw(data_);
-            data_ = data_.RemovePrefix(nbytes);
+            data_.Advance(nbytes);
             if (nbytes != size) {
                 return kFullBuffer;
             } else {
@@ -159,10 +159,10 @@ namespace tokyotyrant {
         if (!key_.empty()) {
             auto nbytes = stream->WriteRaw(key_);
             if (nbytes != key_.size()) {
-                key_ = key_.RemovePrefix(nbytes);
+                key_.Advance(nbytes);
                 return kFullBuffer;
             } else {
-                key_ = key_.RemovePrefix(nbytes);
+                key_.Advance(nbytes);
                 assert (key_.empty());
             }
         }
@@ -170,10 +170,10 @@ namespace tokyotyrant {
         if (!val_.empty()) {
             auto nbytes = stream->WriteRaw(val_);
             if (nbytes != val_.size()) {
-                val_ = val_.RemovePrefix(nbytes);
+                val_.Advance(nbytes);
                 return kFullBuffer;
             } else {
-                val_ = val_.RemovePrefix(nbytes);
+                val_.Advance(nbytes);
                 assert (val_.empty());
             }
         }
@@ -192,7 +192,7 @@ namespace tokyotyrant {
         if (!val_.empty()) {
             auto nbytes = stream->WriteRaw(val_);
             if (nbytes != val_.size()) {
-                val_ = val_.RemovePrefix(nbytes);
+                val_.Advance(nbytes);
                 return kFullBuffer;
             }
         }
