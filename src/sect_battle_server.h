@@ -120,6 +120,11 @@ namespace SectBattle {
             //服务器状态和管理
             void AdminServerCallback(alpha::TcpConnectionPtr,
                     const alpha::HTTPMessage& message);
+#if 0
+            void AdminServerHandlePlayer(alpha::TcpConnectionPtr& conn,
+                    const alpha::HTTPMessage& message);
+            std::string AdminServerHandleSect(const alpha::HTTPMessage& message);
+#endif
             std::string ServerStatus();
             std::string FieldStatus(Pos pos);
             std::string SectStatus(SectType sect);
@@ -127,6 +132,10 @@ namespace SectBattle {
             std::string AdminServerUsage() const;
             void ForceBackup();
             void RemoveCombatant(UinType uin);
+            void WriteHTTPResponse(alpha::TcpConnectionPtr& conn,
+                    int status,
+                    alpha::Slice status_string,
+                    alpha::Slice body = "");
 
             static const int kBackupInterval = 30 * 60 * 1000; //30mins in milliseconds
             //static const int kBackupInterval = 10 * 1000;

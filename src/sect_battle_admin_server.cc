@@ -6,6 +6,7 @@
  *         Author:  Peng Wang
  *          Email:  pw2191195@gmail.com
  *    Description:  把管理功能的HTTPServer逻辑从服务器主逻辑代码中分开
+ *                  一点都不RESTful, 下次吧
  *
  * =============================================================================
  */
@@ -26,26 +27,14 @@ namespace SectBattle {
         auto path = message.Path();
         try {
             if (path == "/status") {
-                alpha::HTTPResponseBuilder(conn)
-                    .status(200, "OK")
-                    .AddHeader("Server", "alpha::SimpleHTTPServer")
-                    .AddHeader("Connection", "close")
-                    .AddHeader("Content-Type", "application/json")
-                    .body(ServerStatus())
-                    .SendWithEOM();
+                WriteHTTPResponse(conn, 200, "OK", ServerStatus());
                 return;
             } else if (path == "/field") {
                 auto x = std::stoul(message.Params().at("x"));
                 auto y = std::stoul(message.Params().at("y"));
                 if (x <= Pos::kMaxPos && y <= Pos::kMaxPos) {
                     auto pos = Pos::Create(x, y);
-                    alpha::HTTPResponseBuilder(conn)
-                        .status(200, "OK")
-                        .AddHeader("Server", "alpha::SimpleHTTPServer")
-                        .AddHeader("Connection", "close")
-                        .AddHeader("Content-Type", "application/json")
-                        .body(FieldStatus(pos))
-                        .SendWithEOM();
+                    WriteHTTPResponse(conn, 200, "OK", FieldStatus(pos));
                     return;
                 }
             } else if (path == "/player") {
@@ -53,7 +42,8 @@ namespace SectBattle {
                 auto reply = PlayerStatus(uin);
                 alpha::HTTPResponseBuilder builder(conn);
                 builder.AddHeader("Server", "alpha::SimpleHTTPServer")
-                    .AddHeader("Connection", "close");
+                    .AddHeader("Connection", "close")
+                    .AddHeader("Date", alpha::HTTPMessage::FormatDate(alpha::Now()));
                 if (reply.empty()) {
                     builder.status(404, "Not Found")
                     .AddHeader("Content-Type", "text/plain")
@@ -67,22 +57,13 @@ namespace SectBattle {
                 return;
             } else if (path == "/forcebackup") {
                 ForceBackup();
-                alpha::HTTPResponseBuilder(conn)
-                    .status(200, "OK")
-                    .AddHeader("Server", "alpha::SimpleHTTPServer")
-                    .AddHeader("Connection", "close")
-                    .SendWithEOM();
+                WriteHTTPResponse(conn, 200, "OK", "");
                 return;
             } else if (path == "/sect") {
                 unsigned sect = std::stoul(message.Params().at("type"));
                 if (IsValidSectType(sect)) {
-                    alpha::HTTPResponseBuilder(conn)
-                        .status(200, "OK")
-                        .AddHeader("Server", "alpha::SimpleHTTPServer")
-                        .AddHeader("Connection", "close")
-                        .AddHeader("Content-Type", "application/json")
-                        .body(SectStatus(static_cast<SectType>(sect)))
-                        .SendWithEOM();
+                    WriteHTTPResponse(conn, 200, "OK",
+                            SectStatus(static_cast<SectType>(sect)));
                     return;
                 }
             } else if (path == "/removeplayer") {
@@ -92,6 +73,7 @@ namespace SectBattle {
                     alpha::HTTPResponseBuilder(conn)
                         .status(404, "Not Found")
                         .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Date", alpha::HTTPMessage::FormatDate(alpha::Now()))
                         .AddHeader("Connection", "close")
                         .AddHeader("Content-Type", "text/plain")
                         .body(alpha::Slice("Not Found\n"))
@@ -101,6 +83,7 @@ namespace SectBattle {
                     alpha::HTTPResponseBuilder(conn)
                         .status(200, "OK")
                         .AddHeader("Server", "alpha::SimpleHTTPServer")
+                        .AddHeader("Date", alpha::HTTPMessage::FormatDate(alpha::Now()))
                         .AddHeader("Connection", "close")
                         .AddHeader("Content-Type", "text/plain")
                         .body(alpha::Slice("Done\n"))
@@ -115,6 +98,7 @@ namespace SectBattle {
         alpha::HTTPResponseBuilder(conn)
             .status(400, "Bad Request")
             .AddHeader("Server", "alpha::SimpleHTTPServer")
+            .AddHeader("Date", alpha::HTTPMessage::FormatDate(alpha::Now()))
             .AddHeader("Connection", "close")
             .AddHeader("Content-Type", "application/json")
             .body(AdminServerUsage())
@@ -144,23 +128,120 @@ namespace SectBattle {
         }
         pt.add_child("SucceedRequests", requests);
         pt.put("AverageProcessTime", inspector_->AverageProcessTime());
-        pt.put("ProcessStartTime", inspector_->ProcessStartTime());
-        pt.put("ProcessUpTime", alpha::Now() - inspector_->ProcessStartTime());
+        pt.put("ProcessStartTime",
+                alpha::HTTPMessage::FormatDate(inspector_->ProcessStartTime()));
+        pt.put("ProcessUpTime(ms)", alpha::Now() - inspector_->ProcessStartTime());
         pt.put("InfoLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelInfo));
         pt.put("WarnLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelWarning));
         pt.put("ErrorLog", alpha::LogDestination::GetLogNum(alpha::kLogLevelError));
-        pt.put("CurrentTime", alpha::Now());
         pt.put("BackupStatus", backup_coroutine_ && !backup_coroutine_->IsDead() ? 1 : 0);
-        pt.put("BackupEndTime", backup_metadata_->EndTime());
+        pt.put("BackupEndTime", alpha::HTTPMessage::FormatDate(backup_metadata_->EndTime()));
         pt.put("BackupPrefixIndex", current_backup_prefix_index_);
         pt.put("LastBattleFieldResetTime",
-                backup_metadata_->LatestBattleFieldResetTime());
+                alpha::HTTPMessage::FormatDate(
+                    backup_metadata_->LatestBattleFieldResetTime()
+                    * alpha::kMilliSecondsPerSecond));
         pt.put("CombatantsNum", combatants_.size());
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
         LOG_INFO << oss.str().size();
         return oss.str();
     }
+#if 0
+    void Server::AdminServerHandlePlayer(alpha::TcpConnectionPtr& conn,
+            const alpha::HTTPMessage& message) {
+        alpha::Slice path(message.Path());
+        path.RemovePrefix("/player/");
+        UinType uin = std::stoul(path.ToString());
+        if (message.Method() == "GET") {
+            AdminServerGetPlayer(conn, uin);
+        } else if (message.Method() == "DELETE") {
+            AdminServerDeletePlayer(conn, uin);
+        } else {
+            AdminServerMethodNotAllowed(conn, "GET, DELETE");
+        }
+        //AdminServerBadRequest(conn, "Bad Request", "Invalid path.");
+    }
+
+    void Server::AdminServerGetPlayer(alpha::TcpConnectionPtr& conn, UinType uin) {
+        auto it = combatants_.find(uin);
+        if (it == combatants_.end()) {
+            //WriteHTTPResponse("404", "Not
+        }
+    }
+
+    void Server::AdminServerHandleField(alpha::TcpConnectionPtr& conn,
+            const alpha::HTTPMessage& message) {
+        alpha::Slice path(message.Path());
+        path.RemovePrefix("/field/");
+        int16_t x, y;
+        auto n = sscanf("%" SCNd16 "/%" SCNd16, &x, &y);
+        if (n != 2) {
+            AdminServerBadRequest(conn, "Invalid path.");
+            return;
+        }
+
+        if (x < 0 || x > Pos::kMaxPos || y < 0 || y > Pos::kMaxPos) {
+            AdminServerBadRequest(conn, "Invalid position.");
+            return;
+        }
+
+        if (message.Method() == "GET") {
+            AdminServerGetField(conn, Pos::Create(x, y));
+        } else {
+            AdminServerMethodNotAllowed(conn, "GET");
+        }
+    }
+
+    void Server::AdminServerHandleSect(alpha::TcpConnectionPtr& conn,
+            const alpha::HTTPMessage& message) {
+        alpha::Slice path(message.Path());
+        path.RemovePrefix("/sect/");
+        std::vector<std::string> sect_names = {
+            "shaolin",
+            "wudang",
+            "kunlun",
+            "emei",
+            "huashan",
+            "kongtong",
+            "mingjiao",
+            "gaibang"
+        };
+        auto it = std::find(sect_names.begin(), sect_names.end(), path.ToString());
+        if (it == sect_names.end()) {
+            AdminServerBadRequest(conn, "Invalid sect");
+            return;
+        }
+        SectType sect_type = static_cast<SectType>(
+                std::distance(sect_names.begin(), it) + 1);
+        if (message.Method() == "GET") {
+            AdminServerGetSect(conn, sect_type);
+        } else {
+            AdminServerMethodNotAllowed(conn, "GET");
+        }
+    }
+
+    void Server::AdminServerHandleBackup(alpha::TcpConnectionPtr& conn,
+            const alpha::HTTPMessage& message) {
+        if (method.Method() == "GET") {
+            boost::property_tree::ptree pt;
+            pt.put("BackupStatus",
+                    backup_coroutine_ && !backup_coroutine_->IsDead() ? 1 : 0);
+            pt.put("BackupEndTime",
+                    alpha::HTTPMessage::FormatDate(backup_metadata_->EndTime()));
+            pt.put("BackupPrefixIndex", current_backup_prefix_index_);
+            std::ostringstream oss;
+            boost::property_tree::write_json(oss, pt);
+            WriteHTTPResponse(conn, 200, "OK", oss.str());
+        }
+        else if (method.Method() == "POST") {
+            BackupRoutine(true);
+            WriteHTTPResponse(conn, "202", "Accepted", "");
+        } else {
+            AdminServerMethodNotAllowed(conn, "GET, POST");
+        }
+    }
+#endif
 
     std::string Server::FieldStatus(Pos pos) {
         auto & field = CheckGetField(pos);
@@ -208,15 +289,23 @@ namespace SectBattle {
         boost::property_tree::ptree pt;
         boost::property_tree::ptree usage;
         std::vector<std::string> usages = {
-            "curl host:port/path",
-            "get player info, path = player?uin=2191195",
-            "get server status, path = status",
-            "get field info, path = field?x=1&y=1",
-            "get sect info, path = sect?type=1",
-            "force backup, path = forcebackup",
-            "remove player, path = removeplayer?uin=2191195",
-            "usage, path = [default]"
+            "GET /player?uin=$UIN",
+            "GET /removeplayer?uin=$UIN",
+            "GET /status",
+            "GET /field?x=$X&y=$Y",
+            "GET /sect?type=$TYPE",
+            "GET /forcebackup",
         };
+#if 0
+        std::vector<std::string> usages = {
+            "GET /player/uin",
+            "DELETE /player/uin",
+            "GET /status",
+            "GET /field/x/y",
+            "GET /sect/shaolin",
+            "POST /forcebackup",
+        };
+#endif
         for (const auto& msg : usages) {
             boost::property_tree::ptree array_element;
             array_element.put_value(msg);
@@ -241,5 +330,20 @@ namespace SectBattle {
         combatants_.erase(uin);
         combatant_map_->erase(uin);
         opponent_map_->erase(uin);
+    }
+
+    void Server::WriteHTTPResponse(alpha::TcpConnectionPtr& conn,
+            int status,
+            alpha::Slice status_string,
+            alpha::Slice body) {
+
+        alpha::HTTPResponseBuilder builder(conn);
+        builder.status(status, status_string)
+            .AddHeader("Server", "alpha::SimpleHTTPServer")
+            .AddHeader("Connection", "close")
+            .AddHeader("Content-Type", "application/json")
+            .AddHeader("Date", alpha::HTTPMessage::FormatDate(alpha::Now()))
+            .body(body)
+            .SendWithEOM();
     }
 }
