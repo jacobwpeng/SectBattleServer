@@ -13,6 +13,7 @@
 #include "sect_battle_server_def.h"
 #include <algorithm>
 #include <alpha/random.h>
+#include <alpha/logger.h>
 
 namespace {
     template<typename T>
@@ -363,25 +364,27 @@ namespace SectBattle {
 
     void OpponentLite::ChangeOpponents(Direction direction, const OpponentList& opponents) {
         auto d = static_cast<int>(direction);
-        assert (d >= 0 && d <= kMaxDirection);
-        assert (opponents.size() <= kMaxOpponentOneDirection);
+        CHECK(IsValidDirection(d)) << "Invalid direction = " << direction;
+        CHECK(opponents.size() <= kMaxOpponentOneDirection)
+            << "OpponentList exceed kMaxOpponentOneDirection"
+            << ", opponents.size() = " << opponents.size();
         size_t i = 0;
         while (i < opponents.size()) {
-            this->opponents[d][i] = opponents[i];
+            this->opponents[d - 1][i] = opponents[i];
             ++i;
         }
 
         while (i < kMaxOpponentOneDirection) {
-            this->opponents[d][i] = 0;
+            this->opponents[d - 1][i] = 0;
             ++i;
         }
     }
 
-    OpponentList OpponentLite::GetOpponents(Direction d) {
-        auto direction = static_cast<int>(d);
-        assert (direction >= 0 && direction <= kMaxDirection);
+    OpponentList OpponentLite::GetOpponents(Direction direction) {
+        auto d = static_cast<int>(direction);
+        CHECK(IsValidDirection(d)) << "Invalid direction = " << direction;
         OpponentList res;
-        std::copy_if(std::begin(opponents[direction]), std::end(opponents[direction]),
+        std::copy_if(std::begin(opponents[d - 1]), std::end(opponents[d - 1]),
                 std::back_inserter(res), [](UinType opponent_uin) {
             return opponent_uin != 0;
         });
