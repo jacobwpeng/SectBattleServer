@@ -725,6 +725,8 @@ namespace SectBattle {
             auto garrison_iterator = opponent.Iterator();
             auto last_defeated_time = std::get<kCombatantDefeatedTimeStamp>(
                     *garrison_iterator);
+            DLOG_INFO << "Combatant " << opponent_uin
+                << " last defeated time: " << last_defeated_time;
             if (last_defeated_time > LastTimeNotInProtection()) {
                 resp.set_code(static_cast<int>(Code::kOpponentInProtection));
             } else {
@@ -790,7 +792,15 @@ namespace SectBattle {
             }
             if (loser == opponent_uin) {
                 //对手被击败才会进入保护期
-                RecordCombatantDefeatedTime(loser);
+                //如果被动战败一定会被重置的话
+                //可以把更新last defeated time的操作放到MoveCombatant中
+                //减少一次删除和插入操作
+                auto now = alpha::Now();
+                auto & opponent_current_field = CheckGetField(opponent.CurrentPos());
+                auto new_iter = opponent_current_field.UpdateGarrisonLastDefeatedTime(
+                        opponent_uin, now, opponent.Iterator());
+                opponent.SetIterator(new_iter);
+                RecordCombatantDefeatedTime(loser, now);
             }
             SetBattleField(self.CurrentPos(), resp.mutable_battle_field());
         }
@@ -826,10 +836,10 @@ namespace SectBattle {
         (*combatant_map_)[uin] = CombatantLite::Create(current_pos, level);
     }
 
-    void Server::RecordCombatantDefeatedTime(UinType uin) {
+    void Server::RecordCombatantDefeatedTime(UinType uin, alpha::TimeStamp now) {
         auto it = combatant_map_->find(uin);
         assert (it != combatant_map_->end());
-        it->second.last_defeated_time = alpha::Now();
+        it->second.last_defeated_time = now;
     }
 
     void Server::RecordSect(Pos pos, SectType sect_type) {

@@ -79,6 +79,7 @@ namespace SectBattle {
     }
 
     std::pair<Pos, bool> Pos::Apply(Direction d) const {
+        assert (Valid());
         if (d == Direction::kUp && y_ == 0) {
             return std::make_pair(*this, false);
         }
@@ -109,8 +110,6 @@ namespace SectBattle {
                 x += 1;
                 break;
         }
-
-        assert (Valid());
         return std::make_pair(Pos::Create(x, y), true);
     }
 
@@ -177,6 +176,17 @@ namespace SectBattle {
         garrison_.erase(it);
         auto res = garrison_.insert(CombatantIdentity(newlevel, last_defeated_time, uin));
         assert (res.second);
+        return res.first;
+    }
+
+    GarrisonIterator Field::UpdateGarrisonLastDefeatedTime(UinType uin,
+            alpha::TimeStamp last_defeated_time, GarrisonIterator it) {
+        assert (it != garrison_.end());
+        assert (garrison_.find(*it) == it);
+        auto level = std::get<kCombatantLevel>(*it);
+        garrison_.erase(it);
+        auto res = garrison_.insert(CombatantIdentity(level, last_defeated_time, uin));
+        CHECK (res.second);
         return res.first;
     }
 

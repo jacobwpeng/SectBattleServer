@@ -126,6 +126,8 @@ namespace SectBattle {
             void ReduceGarrison(UinType uin, GarrisonIterator it);
             GarrisonIterator UpdateGarrisonLevel(UinType uin, LevelType newlevel,
                     GarrisonIterator it);
+            GarrisonIterator UpdateGarrisonLastDefeatedTime(UinType uin,
+                    alpha::TimeStamp last_defeated_time, GarrisonIterator it);
             OpponentList GetOpponents(LevelType level, alpha::TimeStamp defeated_before);
             SectType Owner() const;
             FieldType Type() const;

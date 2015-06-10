@@ -109,7 +109,7 @@ namespace SectBattle {
 
             //落地各种操作（备份恢复用）
             void RecordCombatant(UinType uin, Pos current_pos, LevelType level);
-            void RecordCombatantDefeatedTime(UinType uin);
+            void RecordCombatantDefeatedTime(UinType uin, alpha::TimeStamp now);
             void RecordSect(Pos pos, SectType sect_type);
             void RecordOpponent(UinType uin, Direction d, const OpponentList& opponents);
 
