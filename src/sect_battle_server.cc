@@ -337,8 +337,8 @@ namespace SectBattle {
     }
 
     ssize_t Server::HandleMessage(alpha::Slice packet, char* out) {
-        auto start = alpha::Now();
-        inspector_->AddRequestNum(start);
+        auto start = alpha::NowInMicroseconds();
+        inspector_->AddRequestNum(start / 1000);
         SectBattle::ProtocolMessage wrapper;
         if (!wrapper.ParseFromArray(packet.data(), packet.size())) {
             LOG_WARNING << "Invalid packet, packet.size() = " << packet.size();
@@ -357,9 +357,9 @@ namespace SectBattle {
         }
 
         auto ret = dispatcher_->Dispatch(m.get(), out);
-        auto end = alpha::Now();
+        auto end = alpha::NowInMicroseconds();
         if (ret >= 0) {
-            inspector_->AddSucceedRequestNum(end);
+            inspector_->AddSucceedRequestNum(end / 1000);
         } else {
             LOG_INFO << "Process failed, message_name = " << wrapper.name()
                 << ", ret = " << ret;
@@ -510,53 +510,37 @@ namespace SectBattle {
 
             auto owner = new_field.Owner();
             OpponentList opponents = combatant.GetOpponents(direction);
-            if (owner != SectType::kNone && owner != combatant.CurrentSect()->Type()
+            if (owner != SectType::kNone
+                    && owner != combatant.CurrentSect()->Type()
                     && opponents.empty()) {
                 //移动到其它门派占领的格子, 而这个方向又没有刷新过对手，生成一下对手
                 opponents = new_field.GetOpponents(req->level(), LastTimeNotInProtection());
             }
-            //几种可能可以移动的情况
+            bool perform_move_action = false;
             if (owner == SectType::kNone
                     || owner == combatant.CurrentSect()->Type()
-                    || opponents.empty()) {
-                bool perform_move_action = false;
-                if (owner == SectType::kNone || owner == combatant.CurrentSect()->Type()) {
-                    //移动到没人占领，或者是属于本门派的格子
-                    if (!can_move) {
-                        resp.set_code(static_cast<int>(Code::kCannotMove));
-                    } else {
-                        perform_move_action = true;
-                    }
+                    || (new_field.GarrisonNum() == 0
+                        && conf_->GetBornPos(owner) != new_pos)) {
+                //移动到没人占领，或者是属于本门派的格子，或者没人的非出生点格子
+                if (!can_move) {
+                    resp.set_code(static_cast<int>(Code::kCannotMove));
                 } else {
-                    //移动到其它门派的格子，但是刷新不到对手
-                    assert (opponents.empty());
-                    if (new_field.GarrisonNum() != 0) {
-                        //有人在却刷不出来对手，说明他们都在保护期
-                        resp.set_code(static_cast<int>(Code::kAllGarrisonInProtection));
-                    } else if (conf_->GetBornPos(owner) == new_pos) {
-                        //虽然没人，但是这是人家出生点
-                        resp.set_code(static_cast<int>(Code::kCannotMoveToBornPos));
-                    } else if (!can_move) {
-                        //最后才判断是不是行动力不足
-                        resp.set_code(static_cast<int>(Code::kCannotMove));
-                    } else {
-                        perform_move_action = true;
-                    }
+                    perform_move_action = true;
                 }
-                if (perform_move_action) {
-                    LOG_INFO << "Combatant " << uin << " pos changed, old pos = "
-                        << current_pos << ", new pos = " << new_pos;
-                    if (owner != combatant.CurrentSect()->Type()) {
-                        //这个格子换主人了
-                        LOG_INFO << "Field owner changed, old = " << owner
-                            << ", new = " << combatant.CurrentSect()->Type();
-                        new_field.ChangeOwner(combatant.CurrentSect()->Type());
-                    }
-                    //更新玩家的位置
-                    MoveCombatant(uin, req->level(), &combatant, new_pos);
-                    resp.set_code(static_cast<int>(Code::kOk));
-                    final_pos = new_pos;
-                    RecordSect(new_pos, combatant.CurrentSect()->Type());
+            } else if (opponents.empty()) {
+                //移动到其它门派的格子，但是刷新不到对手
+                assert (opponents.empty());
+                if (new_field.GarrisonNum() != 0) {
+                    //有人在却刷不出来对手，说明他们都在保护期
+                    resp.set_code(static_cast<int>(Code::kAllGarrisonInProtection));
+                } else if (conf_->GetBornPos(owner) == new_pos) {
+                    //虽然没人，但是这是人家出生点
+                    resp.set_code(static_cast<int>(Code::kCannotMoveToBornPos));
+                } else if (!can_move) {
+                    //最后才判断是不是行动力不足
+                    resp.set_code(static_cast<int>(Code::kCannotMove));
+                } else {
+                    perform_move_action = true;
                 }
             } else {
                 //移动到其它门派占领的格子上, 而且能够刷新到对手
@@ -567,6 +551,22 @@ namespace SectBattle {
                 std::copy(opponents.begin(), opponents.end(), 
                     google::protobuf::RepeatedFieldBackInserter(resp.mutable_opponents()));
                 RecordOpponent(uin, direction, opponents);
+            }
+
+            if (perform_move_action) {
+                LOG_INFO << "Combatant " << uin << " pos changed, old pos = "
+                    << current_pos << ", new pos = " << new_pos;
+                if (owner != combatant.CurrentSect()->Type()) {
+                    //这个格子换主人了
+                    LOG_INFO << "Field owner changed, old = " << owner
+                        << ", new = " << combatant.CurrentSect()->Type();
+                    new_field.ChangeOwner(combatant.CurrentSect()->Type());
+                }
+                //更新玩家的位置
+                MoveCombatant(uin, req->level(), &combatant, new_pos);
+                resp.set_code(static_cast<int>(Code::kOk));
+                final_pos = new_pos;
+                RecordSect(new_pos, combatant.CurrentSect()->Type());
             }
         }
         SetBattleField(final_pos, resp.mutable_battle_field());
@@ -656,6 +656,10 @@ namespace SectBattle {
             Field& field = CheckGetField(res.first);
             auto new_opponents = field.GetOpponents(level, LastTimeNotInProtection());
             if (field.GarrisonNum() == 0) {
+                CHECK (new_opponents.empty());
+                OpponentList empty;
+                combatant.ChangeOpponents(direction, empty);
+                RecordOpponent(uin, direction, empty);
                 resp.set_code(static_cast<int>(Code::kNoGarrisonInField));
             } else if (new_opponents.empty()) {
                 resp.set_code(static_cast<int>(Code::kAllGarrisonInProtection));
@@ -733,6 +737,7 @@ namespace SectBattle {
                 resp.set_code(static_cast<int>(Code::kOk));
             }
         }
+        resp.set_sect(static_cast<uint32_t>(combatant.CurrentSect()->Type()));
         SetBattleField(combatant.CurrentPos(), resp.mutable_battle_field());
         return WriteResponse(resp, out);
     }
@@ -820,10 +825,13 @@ namespace SectBattle {
         Field& current_field = CheckGetField(combatant->CurrentPos());
         Field& new_field = CheckGetField(new_pos);
 
+        auto last_defeated_time = std::get<kCombatantDefeatedTimeStamp>(
+                *combatant->Iterator());
+
         //从旧的格子里干掉
         current_field.ReduceGarrison(uin, combatant->Iterator());
         //放到新的格子中
-        auto new_iter = new_field.AddGarrison(uin, level);
+        auto new_iter = new_field.AddGarrison(uin, level, last_defeated_time);
         //然后更新玩家的当前位置
         combatant->MoveTo(new_pos);
         //更新玩家在格子中的索引
@@ -859,6 +867,18 @@ namespace SectBattle {
 
     void Server::SetBattleField(Pos current_pos, BattleField* battle_field) {
         assert (battle_field);
+        battle_field->Clear();
+        battle_field->mutable_self_position()->set_x(current_pos.X());
+        battle_field->mutable_self_position()->set_y(current_pos.Y());
+
+        for (const auto & p : battle_field_) {
+            const Field& field = p.second;
+            auto cell = battle_field->add_field();
+            cell->set_owner(static_cast<unsigned>(field.Owner()));
+            cell->set_garrison_num(field.GarrisonNum());
+        }
+        assert (battle_field->field_size() == 100);
+#if 0
         if (unlikely(cached_battle_field_ == nullptr)) {
             cached_battle_field_.reset(new BattleField);
         }
@@ -879,6 +899,9 @@ namespace SectBattle {
             cache_create_time = alpha::Now();
         }
         battle_field->CopyFrom(*cached_battle_field_);
+        battle_field->mutable_self_position()->set_x(current_pos.X());
+        battle_field->mutable_self_position()->set_y(current_pos.Y());
+#endif
     }
 
     ssize_t Server::WriteResponse(const google::protobuf::Message& resp, char* out) {

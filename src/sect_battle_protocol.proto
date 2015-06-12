@@ -93,6 +93,7 @@ message CheckFightResponse {
     optional uint32 uin = 1;
     optional sint32 code = 2;
     optional BattleField battle_field = 3;
+    optional uint32 sect = 4;
 }
 
 message ReportFightRequest {

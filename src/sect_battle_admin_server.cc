@@ -107,7 +107,6 @@ namespace SectBattle {
 
     std::string Server::ServerStatus() {
         boost::property_tree::ptree pt;
-        pt.put("RequestPerSecond", inspector_->RequestProcessedPerSeconds());
         std::vector<int> seconds = {60, 300, 1500};
         boost::property_tree::ptree requests;
         for (auto second : seconds) {
@@ -127,7 +126,10 @@ namespace SectBattle {
             requests.push_back(std::make_pair("", array_element));
         }
         pt.add_child("SucceedRequests", requests);
-        pt.put("AverageProcessTime", inspector_->AverageProcessTime());
+        pt.put("AverageProcessTime(us)", inspector_->AverageProcessTime());
+        pt.put("MaxRequestProcessTime(us)", inspector_->MaxRequestProcessTime());
+        pt.put("RequestPerSecond", inspector_->RequestProcessedPerSeconds());
+        pt.put("Now", alpha::HTTPMessage::FormatDate(alpha::Now()));
         pt.put("ProcessStartTime",
                 alpha::HTTPMessage::FormatDate(inspector_->ProcessStartTime()));
         pt.put("ProcessUpTime(ms)", alpha::Now() - inspector_->ProcessStartTime());
@@ -144,7 +146,6 @@ namespace SectBattle {
         pt.put("CombatantsNum", combatants_.size());
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
-        LOG_INFO << oss.str().size();
         return oss.str();
     }
 #if 0

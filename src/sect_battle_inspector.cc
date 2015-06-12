@@ -71,10 +71,13 @@ namespace SectBattle {
         succeed_requests_.Add(timestamp);
     }
 
-    void Inspector::RecordProcessRequestTime(int milliseconds) {
+    void Inspector::RecordProcessRequestTime(int us) {
         total_requests_.first++;
-        total_requests_.second += milliseconds;
-        max_request_process_time_ = std::max(milliseconds, max_request_process_time_);
+        total_requests_.second += us;
+        LOG_INFO << "request = " << total_requests_.first
+            << ", time eclapsed = " << total_requests_.second
+            << ", us = " << us;
+        max_request_process_time_ = std::max(us, max_request_process_time_);
     }
 
     double Inspector::RequestProcessedPerSeconds() const {
@@ -98,5 +101,9 @@ namespace SectBattle {
 
     alpha::TimeStamp Inspector::ProcessStartTime() const {
         return process_start_time_;
+    }
+
+    int Inspector::MaxRequestProcessTime() const {
+        return max_request_process_time_;
     }
 }

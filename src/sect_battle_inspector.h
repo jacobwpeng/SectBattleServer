@@ -35,7 +35,7 @@ namespace SectBattle {
             Inspector();
 
             void RecordProcessStartTime(alpha::TimeStamp timestamp);
-            void RecordProcessRequestTime(int milliseconds);
+            void RecordProcessRequestTime(int us);
             void AddRequestNum(alpha::TimeStamp timestamp);
             void AddSucceedRequestNum(alpha::TimeStamp timestamp);
             double RequestProcessedPerSeconds() const;
@@ -43,6 +43,7 @@ namespace SectBattle {
             int32_t SampleSucceedRequests(int latest_seconds) const;
             int32_t AverageProcessTime() const;
             alpha::TimeStamp ProcessStartTime() const;
+            int MaxRequestProcessTime() const;
 
         private:
             static const int kMaxSampleSeconds = 900;
