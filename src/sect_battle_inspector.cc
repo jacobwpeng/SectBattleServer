@@ -56,8 +56,7 @@ namespace SectBattle {
         statistics_.erase(first, last);
     }
 
-    Inspector::Inspector() {
-    }
+    Inspector::Inspector() = default;
 
     void Inspector::RecordProcessStartTime(alpha::TimeStamp timestamp) {
         process_start_time_ = timestamp;
@@ -74,7 +73,7 @@ namespace SectBattle {
     void Inspector::RecordProcessRequestTime(int us) {
         total_requests_.first++;
         total_requests_.second += us;
-        LOG_INFO << "request = " << total_requests_.first
+        DLOG_INFO << "request = " << total_requests_.first
             << ", time eclapsed = " << total_requests_.second
             << ", us = " << us;
         max_request_process_time_ = std::max(us, max_request_process_time_);

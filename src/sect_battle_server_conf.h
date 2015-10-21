@@ -22,12 +22,14 @@ namespace SectBattle {
         public:
             static std::unique_ptr<ServerConf> ReadFromFile(alpha::Slice file);
 
+            bool IsOffLimitsArea(Pos pos) const;
             Pos GetBornPos(SectType sect_type) const;
             bool InSameSeason(time_t lhs, time_t rhs) const;
             //in milliseconds
             int DefeatedProtectionDuration() const;
 
         private:
+            std::set<Pos> off_limits_area_;
             std::map<SectType, Pos> born_positions_;
     };
 }

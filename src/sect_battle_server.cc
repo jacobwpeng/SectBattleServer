@@ -104,7 +104,7 @@ namespace SectBattle {
         if (FLAGS_auto_backup) {
             loop_->RunEvery(1000, std::bind(&Server::BackupRoutine, this, false));
         }
-        loop_->RunEvery(1000, std::bind(&Server::CheckResetBattleField, this));
+        loop_->RunEvery(200, std::bind(&Server::CheckResetBattleField, this));
         bool ok =  BuildMMapedData();
         if (!ok) {
             return false;
@@ -302,6 +302,22 @@ namespace SectBattle {
             assert (res.second);
             (void)res;
         }
+
+        //然后生成禁入点
+        for (int x = 0; x <= Pos::kMaxPos; ++x) {
+            for (int y = 0; y <= Pos::kMaxPos; ++y) {
+                auto pos = Pos::Create(x, y);
+                if (conf_->IsOffLimitsArea(pos)) {
+                    auto res = battle_field_.emplace(std::piecewise_construct,
+                                    std::forward_as_tuple(pos),
+                                    std::forward_as_tuple(SectType::kNone,
+                                        FieldType::kForbiddenField));
+                    assert (res.second);
+                    (void)res;
+                }
+            }
+        }
+
         //然后剩下的都是普通点（资源点对服务器来说并没有用）
         for (int x = 0; x <= Pos::kMaxPos; ++x) {
             for (int y = 0; y <= Pos::kMaxPos; ++y) {
@@ -403,6 +419,9 @@ namespace SectBattle {
             return -1;
         }
 
+        //避免加入之后立马重置赛场
+        CheckResetBattleField();
+
         const UinType uin = req->uin();
         const LevelType level = req->level();
 
@@ -477,6 +496,9 @@ namespace SectBattle {
         }
 
         auto destination = Pos::Create(req->destination().x(), req->destination().y());
+        if (unlikely(conf_->IsOffLimitsArea(destination))) {
+            return -4;
+        }
 
         MoveResponse resp;
         const UinType uin = req->uin();
@@ -877,31 +899,7 @@ namespace SectBattle {
             cell->set_owner(static_cast<unsigned>(field.Owner()));
             cell->set_garrison_num(field.GarrisonNum());
         }
-        assert (battle_field->field_size() == 100);
-#if 0
-        if (unlikely(cached_battle_field_ == nullptr)) {
-            cached_battle_field_.reset(new BattleField);
-        }
-        static alpha::TimeStamp cache_create_time = 0;
-
-        if (cache_create_time + FLAGS_battle_field_cache_ttl < alpha::Now()) {
-            cached_battle_field_->Clear();
-            cached_battle_field_->mutable_self_position()->set_x(current_pos.X());
-            cached_battle_field_->mutable_self_position()->set_y(current_pos.Y());
-
-            for (const auto & p : battle_field_) {
-                const Field& field = p.second;
-                auto cell = cached_battle_field_->add_field();
-                cell->set_owner(static_cast<unsigned>(field.Owner()));
-                cell->set_garrison_num(field.GarrisonNum());
-            }
-            assert (cached_battle_field_->field_size() == 100);
-            cache_create_time = alpha::Now();
-        }
-        battle_field->CopyFrom(*cached_battle_field_);
-        battle_field->mutable_self_position()->set_x(current_pos.X());
-        battle_field->mutable_self_position()->set_y(current_pos.Y());
-#endif
+        assert (battle_field->field_size() == kBattleFieldCount);
     }
 
     ssize_t Server::WriteResponse(const google::protobuf::Message& resp, char* out) {
@@ -932,7 +930,8 @@ namespace SectBattle {
 
     void Server::CheckResetBattleField() {
         auto now = alpha::NowInSeconds();
-        if (!conf_->InSameSeason(now, backup_metadata_->LatestBattleFieldResetTime())) {
+        if (unlikely(!conf_->InSameSeason(now,
+                        backup_metadata_->LatestBattleFieldResetTime()))) {
             LOG_INFO << "now = " << now << ", LatestBattleFieldResetTime = "
                 << backup_metadata_->LatestBattleFieldResetTime();;
             ResetBattleField();

@@ -29,17 +29,27 @@ namespace SectBattle {
                 if (child.first != "field") continue;
                 auto & field = child.second;
                 const std::string field_type = field.get<std::string>("<xmlattr>.type"); 
-                if (field_type != "born") continue; //只读取出生点
-                const int sect = field.get<int>("<xmlattr>.sect");
+                bool is_born_pos = field_type == "born";
+                bool is_off_limits_pos = field_type == "forbidden";
+                if (!is_born_pos && !is_off_limits_pos) {
+                    continue; //只读取出生点和禁入点
+                }
                 const int x = field.get<int>("<xmlattr>.x");
                 const int y = field.get<int>("<xmlattr>.y");
                 auto pos = Pos::Create(x, y);
                 assert (pos.Valid());
-                assert (IsValidSectType(sect));
-                auto sect_type = static_cast<SectType>(sect);
-                auto res = conf->born_positions_.emplace(sect_type, pos);
-                assert (res.second);
-                (void)res;
+                if (is_born_pos) {
+                    const int sect = field.get<int>("<xmlattr>.sect");
+                    assert (IsValidSectType(sect));
+                    auto sect_type = static_cast<SectType>(sect);
+                    auto res = conf->born_positions_.emplace(sect_type, pos);
+                    assert (res.second);
+                    (void)res;
+                } else {
+                    auto res = conf->off_limits_area_.emplace(pos);
+                    assert (res.second);
+                    (void)res;
+                }
             }
             //检查一下完整性
             for (int sect = static_cast<int>(SectType::kNone) + 1;
@@ -58,6 +68,10 @@ namespace SectBattle {
         }
     }
 
+    bool ServerConf::IsOffLimitsArea(Pos pos) const {
+        return off_limits_area_.find(pos) != off_limits_area_.end();
+    }
+
     Pos ServerConf::GetBornPos(SectType sect_type) const {
         auto it = born_positions_.find(sect_type);
         assert (it != born_positions_.end());
@@ -73,20 +87,6 @@ namespace SectBattle {
         static const int kSameSeasonOffset = 26 * kOneHourSeconds;
         return (lhs + kSameSeasonOffset) / kOneWeekSeconds
             == (rhs + kSameSeasonOffset) / kOneWeekSeconds;
-#if 0
-        auto one = boost::posix_time::from_time_t(lhs);
-        one += boost::posix_time::hours(8);
-        auto another = boost::posix_time::from_time_t(rhs);
-        another += boost::posix_time::hours(8);
-
-        //周三六点切换，所以过去倒退3天6小时，以周日0点来判断是否为同一个星期
-        one -= boost::posix_time::hours(3 * 24 + 6);
-        another -= boost::posix_time::hours(3 * 24 + 6);
-
-        DLOG_INFO << "one.date().week_number() = " << one.date().week_number()
-            << ", another.date().week_number() = " << another.date().week_number();
-        return one.date().week_number() == another.date().week_number();
-#endif
     }
 
     int ServerConf::DefeatedProtectionDuration() const {

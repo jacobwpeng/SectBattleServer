@@ -48,6 +48,7 @@ namespace SectBattle {
         kDefault = 0, //普通位置
         kBornField = 1, //出生点
         //kExtraResourceField = 2, //额外资源点，对Server没用
+        kForbiddenField = 3, //禁入点
     };
     //门派类型
     enum class SectType {
@@ -77,6 +78,7 @@ namespace SectBattle {
         kCombatantUin = 2
     };
     
+    static const int kBattleFieldCount = 81;
     using UinType = uint32_t;
     using LevelType = uint16_t;
     using OpponentList = std::vector<UinType>;
@@ -92,7 +94,7 @@ namespace SectBattle {
     //战场位置
     class Pos {
         public:
-            static const int kMaxPos = 9;
+            static const int kMaxPos = 8;
             static Pos Create(int16_t x, int16_t y);
             static Pos CreateInvalid();
             int16_t X() const { return x_; }
